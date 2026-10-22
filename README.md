@@ -190,3 +190,26 @@ Every page ships a meta `Content-Security-Policy` and `Referrer-Policy`. For pro
 4. **Resilient Routing:**
    - Features automatic URL normalization (adds `https://` if omitted).
    - Gracefully handles unreachable sites or 404s without breaking n8n execution.
+
+---
+
+## 🔄 Automatic GitHub Sync
+
+You can push your latest code to GitHub automatically using two methods:
+
+### Method 1: Instant Push (Single Command)
+Runs `git add .`, commits with a timestamp, and pushes to `origin/main`:
+```bash
+npm run push
+```
+Or with custom commit message:
+```powershell
+powershell -ExecutionPolicy Bypass -File ./scripts/auto-push.ps1 -msg "Your commit message"
+```
+
+### Method 2: Continuous Background Watcher (Auto-Push on Save)
+Monitors files in real time. When you save changes in your editor, it waits 10 seconds (debounced) and pushes to GitHub automatically:
+```bash
+npm run push:watch
+```
+
