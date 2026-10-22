@@ -8,6 +8,11 @@ export const WORKFLOW_URL = `${N8N_BASE_URL}/workflow/${WORKFLOW_ID}?projectId=8
 // Increased timeout for local LLMs (Ollama) on CPU/GPU
 export const REQUEST_TIMEOUT_MS = 180000;
 
+// Shared secret verified inside the n8n workflow (value lives in .env.local
+// as VITE_N8N_SHARED_SECRET and mirrors N8N_SHARED_SECRET on the n8n host).
+export const N8N_SHARED_SECRET =
+  import.meta.env.VITE_N8N_SHARED_SECRET || "";
+
 export async function pingN8nStatus() {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 4000);
@@ -41,7 +46,10 @@ export async function executeScrapeRequest(targetUrl) {
       const response = await fetch(item.endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: targetUrl }),
+        body: JSON.stringify({
+          url: targetUrl,
+          shared_secret: N8N_SHARED_SECRET
+        }),
         signal: controller.signal
       });
 

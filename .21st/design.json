@@ -1,0 +1,152 @@
+{
+  "version": 1,
+  "project": {
+    "name": "dossier-scraper-ai",
+    "productType": "marketing site",
+    "stack": [
+      "react",
+      "vite"
+    ]
+  },
+  "sources": {
+    "tokens": [
+      "src/styles.css"
+    ],
+    "components": [
+      "src/App.jsx"
+    ],
+    "assets": [],
+    "instructions": [
+      "DESIGN (2).md"
+    ]
+  },
+  "design": {
+    "colorMode": "light",
+    "colors": {
+      "page": "#FAFAFA",
+      "paper": "#FFFFFF",
+      "ink": "#0A0A0A",
+      "text": "#3F3F46",
+      "muted": "#71717A",
+      "line": "#E4E4E7",
+      "blue": "#2C41B3",
+      "purple": "#8E51FF",
+      "accentBlue": "#3B82F6",
+      "pink": "#F6339A",
+      "green": "#22C55E",
+      "amber": "#F59E0B",
+      "red": "#EF4444"
+    },
+    "typography": {
+      "sans": "Geist",
+      "serifAccent": "Proza Libre",
+      "display": "clamp(46px, 4.2vw, 60px)",
+      "body": "16px"
+    },
+    "spacing": {
+      "pageWidth": "1232px",
+      "headerHeight": "68px",
+      "heroMinHeight": "724px",
+      "workflowStickyTop": "96px",
+      "workflowCardGap": "48vh"
+    },
+    "radius": {
+      "base": "8px",
+      "pill": "999px"
+    },
+    "shadows": {
+      "sm": "0 1px 2px rgba(0, 0, 0, 0.05)",
+      "md": "0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.06)",
+      "lg": "0 28px 70px rgba(18, 18, 25, 0.14)"
+    },
+    "motion": {
+      "easeOut": "cubic-bezier(0.22, 1, 0.36, 1)",
+      "easeSnap": "cubic-bezier(0.16, 1, 0.3, 1)",
+      "reducedMotion": "respected"
+    },
+    "density": "comfortable"
+  },
+  "components": {
+    "installed": [],
+    "preferredPrimitives": [
+      "native anchor",
+      "native button",
+      "role=switch"
+    ],
+    "patterns": [
+      "centered bordered page frame",
+      "split editorial hero with blue diamond panel",
+      "live typed agent chat overlays",
+      "sticky stacked workflow cards",
+      "full-height mobile navigation overlay"
+    ]
+  },
+  "constraints": {
+    "must": [
+      "Use the light palette from DESIGN (2).md: #FAFAFA page, #2C41B3 blue, #8E51FF purple, and white paper surfaces.",
+      "Keep the centered 1232px page frame with Geist body text and Proza Libre only for the italic hero accent.",
+      "Maintain the three-part narrative: hero and logo wall, agent cards and customer proof, then the sticky Build/Test/Deploy/Optimize workflow.",
+      "Keep all core visuals CSS/SVG-based; do not add external image dependencies.",
+      "Preserve keyboard focus, reduced-motion handling, and inert background content while the mobile menu is open."
+    ],
+    "avoid": [
+      "Dark-page styling or reintroducing the previous dossier/chat landing layout.",
+      "Adding legacy multi-page links or integrating index.legacy.html into the Vite app.",
+      "Adding extra product sections beyond the requested marketing flow.",
+      "Replacing the sticky workflow with a static gallery or carousel."
+    ]
+  },
+  "decisions": [
+    {
+      "date": "2026-10-20",
+      "decision": "Ship a light, editorial Chatbase-style marketing page with a centered bordered frame and one long-scroll narrative.",
+      "reason": "This follows the supplied references and DESIGN (2).md while replacing the previous dark landing page."
+    },
+    {
+      "date": "2026-10-20",
+      "decision": "Use a blue diamond-pattern hero panel with a white interactive Procedures card, plus three coloured CSS cube agent cards.",
+      "reason": "It preserves Chatbase's product-led visual language without external imagery."
+    },
+    {
+      "date": "2026-10-20",
+      "decision": "Implement the lifecycle as direct sticky workflow cards with 10px stacking offsets inside one shared stack.",
+      "reason": "This produces the reference cover-on-scroll behaviour and keeps all cards synchronized."
+    },
+    {
+      "date": "2026-10-20",
+      "decision": "Mobile navigation is a full-height overlay with body scroll lock, focus trapping, Escape-to-close, inert page content, and automatic close above 1080px.",
+      "reason": "The overlay must remain usable on short viewports and must not leave hidden page controls keyboard-accessible."
+    }
+  ],
+  "evidence": [
+    {
+      "fact": "project.stack:react",
+      "source": "package.json"
+    },
+    {
+      "fact": "project.stack:vite",
+      "source": "package.json"
+    },
+    {
+      "fact": "design.tokens:defined",
+      "source": "src/styles.css:1-31"
+    },
+    {
+      "fact": "layout.pageWidth:1232px",
+      "source": "src/styles.css:24"
+    },
+    {
+      "fact": "navigation.focusTrap+inert",
+      "source": "src/App.jsx"
+    },
+    {
+      "fact": "workflow.stickyStack",
+      "source": "src/styles.css"
+    },
+    {
+      "fact": "reference.palette+typography",
+      "source": "DESIGN (2).md"
+    }
+  ],
+  "generatedAt": "2026-10-20T12:06:02.071Z"
+}

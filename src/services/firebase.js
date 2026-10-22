@@ -30,6 +30,13 @@ export const firebaseConfig = {
     import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-R7ZZ11CJNZ"
 };
 
+// Client-side Firestore writes are disabled by default: the browser is not a
+// trusted writer (auth is Clerk, so Firestore sees no Firebase Auth token).
+// Enable only after firestore.rules are deployed and a server-side signer
+// verifies Clerk sessions. See README "Security configuration".
+export const FIRESTORE_SYNC_ENABLED =
+  String(import.meta.env.VITE_ENABLE_FIRESTORE_SYNC || "false").toLowerCase() === "true";
+
 // Initialize Firebase App singleton
 export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
@@ -63,6 +70,10 @@ const syncedSessionCache = new Set();
  */
 export async function syncUserToFirestore(user, options = {}) {
   if (!user || !user.id) return null;
+
+  if (!FIRESTORE_SYNC_ENABLED) {
+    return { disabled: true, uid: user.id };
+  }
 
   const { action = "session_sync" } = options;
   const cacheKey = `${user.id}:${user.lastSignInAt || ""}:${action}`;
@@ -119,7 +130,6 @@ export async function syncUserToFirestore(user, options = {}) {
         action,
         timestamp: serverTimestamp(),
         email: primaryEmail,
-        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
         recordedAt: new Date().toISOString()
       });
     } catch (historyErr) {
@@ -147,7 +157,7 @@ export async function syncUserToFirestore(user, options = {}) {
       // localStorage may be unavailable in private browsing
     }
 
-    console.info(`[Firestore] User ${user.id} (${primaryEmail}) synced successfully (${action}).`);
+    console.info(`[Firestore] User ${user.id.slice(0, 8)}... synced (${action}).`);
     return { success: true, uid: user.id };
   } catch (error) {
     console.error("[Firestore] Error syncing user to Firestore:", error);

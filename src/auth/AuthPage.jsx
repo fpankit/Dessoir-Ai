@@ -9,17 +9,25 @@ import {
   useUser
 } from "@clerk/react";
 import { Check, ShieldCheck } from "lucide-react";
+import calendlyLogo from "../assets/logos/calendly.svg";
+import hubspotLogo from "../assets/logos/hubspot.svg";
+import intercomLogo from "../assets/logos/intercom.svg";
+import salesforceLogo from "../assets/logos/salesforce.svg";
+import shopifyLogo from "../assets/logos/shopify.svg";
+import slackLogo from "../assets/logos/slack.svg";
+import stripeLogo from "../assets/logos/stripe.svg";
+import zendeskLogo from "../assets/logos/zendesk.svg";
 import { BrandLockup, FlowerMark } from "../components/Brand";
 
 const integrations = [
-  "Salesforce",
-  "HubSpot",
-  "Zendesk",
-  "Intercom",
-  "Slack",
-  "Shopify",
-  "Stripe",
-  "Calendly"
+  { label: "Salesforce", logo: salesforceLogo },
+  { label: "HubSpot", logo: hubspotLogo },
+  { label: "Zendesk", logo: zendeskLogo },
+  { label: "Intercom", logo: intercomLogo },
+  { label: "Slack", logo: slackLogo },
+  { label: "Shopify", logo: shopifyLogo },
+  { label: "Stripe", logo: stripeLogo },
+  { label: "Calendly", logo: calendlyLogo }
 ];
 
 const clerkAppearance = {
@@ -274,8 +282,14 @@ export default function AuthPage() {
             <p className="auth-trust-label">Works with the tools you already use</p>
             <ul className="auth-logo-grid">
               {integrations.map((integration) => (
-                <li className="auth-logo-tile" key={integration}>
-                  <span className="auth-logo-name">{integration}</span>
+                <li className="auth-logo-tile" key={integration.label}>
+                  <img
+                    className="auth-logo-mark"
+                    src={integration.logo}
+                    alt=""
+                    aria-hidden="true"
+                  />
+                  <span className="auth-logo-name">{integration.label}</span>
                 </li>
               ))}
             </ul>

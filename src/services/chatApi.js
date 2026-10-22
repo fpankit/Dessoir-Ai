@@ -1,4 +1,4 @@
-import { N8N_BASE_URL } from "./scraperApi";
+import { N8N_BASE_URL, N8N_SHARED_SECRET } from "./scraperApi";
 
 const CHAT_ENDPOINTS = [
   { label: "Production Webhook", endpoint: `${N8N_BASE_URL}/webhook/customer-agent-chat` },
@@ -241,6 +241,7 @@ export async function sendAgentMessage(text, brief, history = []) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          shared_secret: N8N_SHARED_SECRET,
           message,
           company_name: brief?.company_name,
           website_url: brief?.website_url,
