@@ -1,0 +1,64 @@
+.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #0a0a0a;
+  white-space: nowrap;
+  font-size: 21px;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.045em;
+  transition: opacity 0.18s ease;
+}
+
+.brand-lockup:hover {
+  opacity: 0.72;
+}
+
+.brand-lockup-mark {
+  flex: none;
+  color: #0a0a0a;
+}
+
+.brand-lockup-copy {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.brand-lockup-copy strong {
+  font-weight: 650;
+}
+
+.brand-lockup-copy small {
+  color: #8d8d96;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.progress-diamonds {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: #d6d6dc;
+}
+
+.progress-diamonds svg {
+  flex: none;
+  transition: color 0.3s ease, transform 0.3s ease;
+}
+
+.progress-diamonds svg[data-filled="true"] {
+  color: #0a0a0a;
+}
+
+.diamond-pattern {
+  position: absolute;
+  width: 120px;
+  height: 230px;
+  color: #e7e7ec;
+  pointer-events: none;
+  user-select: none;
+}

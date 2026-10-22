@@ -1,0 +1,830 @@
+{
+  "name": "Fast Company Website Scraper & Retell AI Customer Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "### 1. Input & Trigger Options\n\n**Option A: Webhook (API Call)**\n`POST http://localhost:5678/webhook/company-summary`\nBody: `{\"url\": \"https://example.com\"}`\n\n**Option B: Manual Test**\nPin a test item with a `url` field, then click **Test workflow**. A missing URL is rejected instead of defaulting to another company.",
+        "height": 220,
+        "width": 380,
+        "color": 6
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000091",
+      "name": "Sticky Note - Triggers",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        140,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 2. High-Speed Scraping & Dense Context\n\n- Uses Firecrawl (when `FIRECRAWL_API_KEY` is set) with native HTTP fallback for reliability.\n- Firecrawl renders key pages to clean markdown; native fetch fills in the remaining pages.\n- Validates public URLs and crawls the homepage plus common pricing, product, service, about, contact, and FAQ pages.\n- Extracts the page title, meta description, headings, pricing/location/FAQ snippets, and key excerpts.\n- Rejects bot-protection, error, and empty pages with a clear failure instead of fabricated company data.",
+        "height": 220,
+        "width": 460,
+        "color": 4
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000092",
+      "name": "Sticky Note - Fast Scraper",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        660,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 3. Fast Local AI (Llama 3.2 3B)\n\n- Connected to local **Ollama** at `http://localhost:11434`\n- Model: **`llama3.2:3b`** (fast local responses)\n- If Ollama is unavailable, the workflow continues with an extractive brief built from the scraped page metadata instead of failing.",
+        "height": 200,
+        "width": 480,
+        "color": 5
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000093",
+      "name": "Sticky Note - AI Models",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        680
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 4. Retell AI & API Key Setup\n\n**Where to pass the Retell API key?**\n1. Set `DEFAULT_RETELL_API_KEY` in **Extract & Validate URL**\n2. Or pass `{\"retell_api_key\": \"key_xxxx\"}` in the webhook body\n3. Or set `RETELL_API_KEY` in the n8n environment\n\nWithout a key, Retell provisioning stays in local mode; the brief and local chat remain grounded on the scraped website.",
+        "height": 220,
+        "width": 460,
+        "color": 3
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000094",
+      "name": "Sticky Note - Retell AI",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 5. Chat Interface (Separate Trigger)\n\nThe chat agent uses the latest scraped company brief. The webhook can also receive company context directly.\n\n**Option A: Built-in n8n Web Chat UI**\n`http://localhost:5678/webhook/company-agent-chat/chat`\n\n**Option B: Webhook Chat API**\n`POST http://localhost:5678/webhook/customer-agent-chat`\nBody: `{\"message\": \"What products do you offer?\", \"company_name\": \"...\", \"website_url\": \"...\", \"what_the_company_does\": \"...\", \"key_products_or_services\": [\"...\"]}`\n\nNo company data is hardcoded. If no scrape exists and no context is supplied, the agent asks you to run a scrape first.",
+        "height": 260,
+        "width": 460,
+        "color": 2
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000095",
+      "name": "Sticky Note - Chat Interface",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        140,
+        780
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "company-summary",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        180,
+        280
+      ],
+      "webhookId": "company-summary-webhook"
+    },
+    {
+      "parameters": {},
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000002",
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        180,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const DEFAULT_RETELL_API_KEY = \"\";\nconst DEFAULT_FIRECRAWL_API_KEY = \"\";\nlet envApiKey = \"\";\ntry {\n  envApiKey = (typeof $env !== \"undefined\" && $env && $env.RETELL_API_KEY) || \"\";\n} catch (e) {\n  envApiKey = \"\";\n}\nlet envFirecrawlApiKey = \"\";\ntry {\n  envFirecrawlApiKey = (typeof $env !== \"undefined\" && $env && $env.FIRECRAWL_API_KEY) || \"\";\n} catch (e) {\n  envFirecrawlApiKey = \"\";\n}\n\nlet inputUrl = \"\";\nlet isWebhook = false;\nlet retellApiKey = DEFAULT_RETELL_API_KEY || envApiKey;\nlet firecrawlApiKey = DEFAULT_FIRECRAWL_API_KEY || envFirecrawlApiKey;\n\nif ($json.headers !== undefined) {\n  isWebhook = true;\n  if ($json.body && typeof $json.body.url === \"string\") {\n    inputUrl = $json.body.url;\n  } else if ($json.query && typeof $json.query.url === \"string\") {\n    inputUrl = $json.query.url;\n  } else if (typeof $json.url === \"string\") {\n    inputUrl = $json.url;\n  }\n  if ($json.body && typeof $json.body.retell_api_key === \"string\") {\n    retellApiKey = $json.body.retell_api_key;\n  } else if ($json.headers && $json.headers[\"x-retell-api-key\"]) {\n    retellApiKey = $json.headers[\"x-retell-api-key\"];\n  }\n  if ($json.body && typeof $json.body.firecrawl_api_key === \"string\") {\n    firecrawlApiKey = $json.body.firecrawl_api_key;\n  } else if ($json.headers && $json.headers[\"x-firecrawl-api-key\"]) {\n    firecrawlApiKey = $json.headers[\"x-firecrawl-api-key\"];\n  }\n} else if (typeof $json.url === \"string\") {\n  inputUrl = $json.url;\n  if (typeof $json.retell_api_key === \"string\") {\n    retellApiKey = $json.retell_api_key;\n  }\n  if (typeof $json.firecrawl_api_key === \"string\") {\n    firecrawlApiKey = $json.firecrawl_api_key;\n  }\n}\n\nif (!inputUrl || typeof inputUrl !== \"string\" || inputUrl.trim() === \"\") {\n  return [\n    {\n      json: {\n        valid: false,\n        url: \"\",\n        mainUrl: \"\",\n        pageType: \"invalid\",\n        scrapeError:\n          'A website URL is required. Send {\"url\":\"https://example.com\"} to the webhook or pin a test item with a url field.',\n        scrapeSuccess: false,\n        statusCode: 422,\n        pagesFetched: 0,\n        pagesAttempted: 0,\n        failedPages: [],\n        retellApiKey: String(retellApiKey || \"\").trim(),\n        firecrawlApiKey: String(firecrawlApiKey || \"\").trim(),\n        isWebhook: isWebhook,\n        timestamp: new Date().toISOString()\n      }\n    }\n  ];\n}\n\ninputUrl = inputUrl.trim();\nif (!/^https?:\\/\\//i.test(inputUrl)) {\n  inputUrl = \"https://\" + inputUrl;\n}\n\nconst originMatch = inputUrl.match(/^(https?:\\/\\/[^\\/?#]+)/i);\nif (!originMatch) {\n  return [\n    {\n      json: {\n        valid: false,\n        url: inputUrl,\n        mainUrl: \"\",\n        pageType: \"invalid\",\n        scrapeError: \"That website URL is not valid: \" + inputUrl,\n        scrapeSuccess: false,\n        statusCode: 422,\n        pagesFetched: 0,\n        pagesAttempted: 0,\n        failedPages: [],\n        retellApiKey: String(retellApiKey || \"\").trim(),\n        firecrawlApiKey: String(firecrawlApiKey || \"\").trim(),\n        isWebhook: isWebhook,\n        timestamp: new Date().toISOString()\n      }\n    }\n  ];\n}\n\nconst origin = originMatch[1].replace(/\\/+$/, \"\");\nconst hostname = origin\n  .replace(/^https?:\\/\\//i, \"\")\n  .split(\":\")[0]\n  .replace(/^www\\./i, \"\")\n  .toLowerCase();\n\nconst isPrivate =\n  !hostname.includes(\".\") ||\n  /\\.local$/i.test(hostname) ||\n  /^(localhost|0\\.0\\.0\\.0|127\\.|10\\.|192\\.168\\.|169\\.254\\.|172\\.(1[6-9]|2\\d|3[01])\\.)/i.test(hostname);\n\nif (isPrivate) {\n  return [\n    {\n      json: {\n        valid: false,\n        url: inputUrl,\n        mainUrl: \"\",\n        pageType: \"invalid\",\n        scrapeError: \"Please provide a public website URL. Local and private network addresses are not supported.\",\n        scrapeSuccess: false,\n        statusCode: 422,\n        pagesFetched: 0,\n        pagesAttempted: 0,\n        failedPages: [],\n        retellApiKey: String(retellApiKey || \"\").trim(),\n        firecrawlApiKey: String(firecrawlApiKey || \"\").trim(),\n        isWebhook: isWebhook,\n        timestamp: new Date().toISOString()\n      }\n    }\n  ];\n}\n\nconst homeUrl = inputUrl.replace(/#.*$/, \"\");\nconst candidates = [\n  { url: homeUrl, pageType: \"home\" },\n  { url: `${origin}/pricing`, pageType: \"pricing\" },\n  { url: `${origin}/plans`, pageType: \"pricing\" },\n  { url: `${origin}/products`, pageType: \"products\" },\n  { url: `${origin}/services`, pageType: \"services\" },\n  { url: `${origin}/about`, pageType: \"about\" },\n  { url: `${origin}/about-us`, pageType: \"about\" },\n  { url: `${origin}/contact`, pageType: \"contact\" },\n  { url: `${origin}/faq`, pageType: \"faq\" }\n];\n\nconst seen = new Set();\nconst crawlTargets = [];\nfor (const target of candidates) {\n  const key = target.url.replace(/\\/+$/, \"\").toLowerCase();\n  if (seen.has(key)) continue;\n  seen.add(key);\n  crawlTargets.push(target);\n}\n\nreturn crawlTargets.map((target) => ({\n  json: {\n    valid: true,\n    url: target.url,\n    mainUrl: origin,\n    pageType: target.pageType,\n    retellApiKey: String(retellApiKey || \"\").trim(),\n    firecrawlApiKey: String(firecrawlApiKey || \"\").trim(),\n    isWebhook: isWebhook,\n    timestamp: new Date().toISOString()\n  }\n}));\n"
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000003",
+      "name": "Extract & Validate URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const DEFAULT_FIRECRAWL_API_KEY = \"\";\n\nconst items = $input.all();\nconst first = items[0]?.json || {};\n\nlet envFirecrawlApiKey = \"\";\ntry {\n  envFirecrawlApiKey = (typeof $env !== \"undefined\" && $env && $env.FIRECRAWL_API_KEY) || \"\";\n} catch (e) {\n  envFirecrawlApiKey = \"\";\n}\n\nconst firecrawlApiKey = String(\n  DEFAULT_FIRECRAWL_API_KEY || envFirecrawlApiKey || first.firecrawlApiKey || \"\",\n).trim();\nconst useFirecrawl = Boolean(firecrawlApiKey);\n\nconst FIRECRAWL_TYPES = new Set([\"home\", \"about\", \"pricing\", \"contact\"]);\nconst firecrawlClaimed = new Set();\n\nconst NATIVE_HEADERS = {\n  \"User-Agent\":\n    \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36\",\n  Accept: \"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\",\n  \"Accept-Language\": \"en-US,en;q=0.9\",\n  \"Cache-Control\": \"no-cache\"\n};\n\nfunction cleanText(value) {\n  return String(value == null ? \"\" : value).replace(/\\s+/g, \" \").trim();\n}\n\nasync function mapLimit(list, limit, fn) {\n  const output = new Array(list.length);\n  let cursor = 0;\n  const workers = Array.from({ length: Math.min(limit, list.length) }, async () => {\n    while (cursor < list.length) {\n      const index = cursor;\n      cursor += 1;\n      output[index] = await fn(list[index], index);\n    }\n  });\n  await Promise.all(workers);\n  return output;\n}\n\nconst fetchNative = async (target) => {\n  const response = await this.helpers.httpRequest({\n    method: \"GET\",\n    url: target.url,\n    headers: NATIVE_HEADERS,\n    timeout: 15000,\n    json: false,\n    returnFullResponse: true,\n    ignoreHttpStatusErrors: true\n  });\n\n  const body =\n    typeof response.body === \"string\" ? response.body : JSON.stringify(response.body == null ? \"\" : response.body);\n\n  return {\n    statusCode: Number(response.statusCode || 0),\n    body\n  };\n};\n\nconst fetchFirecrawl = async (target) => {\n  const response = await this.helpers.httpRequest({\n    method: \"POST\",\n    url: \"https://api.firecrawl.dev/v1/scrape\",\n    headers: {\n      Authorization: `Bearer ${firecrawlApiKey}`,\n      \"Content-Type\": \"application/json\"\n    },\n    body: {\n      url: target.url,\n      formats: [\"markdown\"],\n      onlyMainContent: true\n    },\n    timeout: 25000,\n    json: true,\n    returnFullResponse: true,\n    ignoreHttpStatusErrors: true\n  });\n\n  let payload = response.body;\n  if (typeof payload === \"string\") {\n    try {\n      payload = JSON.parse(payload);\n    } catch (e) {\n      payload = {};\n    }\n  }\n\n  const data = (payload && payload.data) || {};\n  const metadata = data.metadata || {};\n  const markdown = cleanText(data.markdown || \"\");\n  const statusCode = Number(metadata.statusCode || response.statusCode || 0);\n\n  if (!payload || payload.success === false || statusCode >= 400 || markdown.length < 200) {\n    throw new Error(\n      `Firecrawl returned no usable content (${markdown.length} chars, status ${statusCode || \"unknown\"})`,\n    );\n  }\n\n  return {\n    statusCode,\n    body: markdown,\n    pageTitle: cleanText(metadata.title || metadata.ogTitle || \"\"),\n    metaDescription: cleanText(metadata.description || metadata.ogDescription || \"\"),\n    source: \"firecrawl\"\n  };\n};\n\nreturn (async () => {\n  const results = await mapLimit(items, 4, async (item) => {\n    const target = item.json || {};\n    const pageType = target.pageType || \"home\";\n    const base = {\n      url: target.url,\n      mainUrl: target.mainUrl || \"\",\n      pageType,\n      isWebhook: Boolean(target.isWebhook),\n      retellApiKey: target.retellApiKey || \"\",\n      firecrawlApiKey: target.firecrawlApiKey || \"\"\n    };\n\n    const firecrawlEligible =\n      useFirecrawl && FIRECRAWL_TYPES.has(pageType) && !firecrawlClaimed.has(pageType);\n\n    if (firecrawlEligible) {\n      firecrawlClaimed.add(pageType);\n      try {\n        const result = await fetchFirecrawl(target);\n        return {\n          json: {\n            ...base,\n            statusCode: result.statusCode,\n            body: result.body,\n            pageTitle: result.pageTitle,\n            metaDescription: result.metaDescription,\n            source: result.source\n          }\n        };\n      } catch (e) {\n        // Fall back to the native fetch below.\n      }\n    }\n\n    try {\n      const result = await fetchNative(target);\n      return {\n        json: {\n          ...base,\n          statusCode: result.statusCode,\n          body: result.body,\n          pageTitle: \"\",\n          metaDescription: \"\",\n          source: \"http\"\n        }\n      };\n    } catch (e) {\n      return {\n        json: {\n          ...base,\n          statusCode: 0,\n          body: \"\",\n          pageTitle: \"\",\n          metaDescription: \"\",\n          source: \"error\",\n          error: String(e && e.message ? e.message : e)\n        }\n      };\n    }\n  });\n\n  return results;\n})();\n",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000004",
+      "name": "Fetch Website HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "﻿const allItems = $input.all();\nconst firstItem = allItems[0]?.json || {};\nconst targetUrl = firstItem.mainUrl || firstItem.url || \"\";\nconst isWebhook = Boolean(firstItem.isWebhook);\nconst retellApiKey = firstItem.retellApiKey || \"\";\n\nlet pageTitle = \"\";\nlet metaDesc = \"\";\nconst headings = [];\nconst pricingSnippets = [];\nconst faqSnippets = [];\nconst locationSnippets = [];\nconst generalSnippets = [];\nconst failedPages = [];\nconst statusCodes = [];\nlet successfulPages = 0;\nlet totalTextLength = 0;\nlet blocked = false;\n\nfunction decodeEntities(value) {\n  return String(value || \"\")\n    .replace(/&nbsp;/gi, \" \")\n    .replace(/&amp;/gi, \"&\")\n    .replace(/&quot;/gi, \"\\\"\")\n    .replace(/&#0*39;|&apos;|&#x27;/gi, \"'\")\n    .replace(/&lt;/gi, \"<\")\n    .replace(/&gt;/gi, \">\")\n    .replace(/&mdash;/gi, \"-\")\n    .replace(/&ndash;/gi, \"-\")\n    .replace(/&hellip;/gi, \"...\")\n    .replace(/&#(\\d+);/g, (_, code) => String.fromCharCode(Number(code)))\n    .replace(/\\s+/g, \" \")\n    .trim();\n}\n\nfunction addUnique(list, value, max, minLength) {\n  const text = decodeEntities(value).replace(/\\s+/g, \" \").trim();\n  if (text.length < minLength) return;\n  if (list.some((item) => item.toLowerCase() === text.toLowerCase())) return;\n  if (list.length < max) list.push(text);\n}\n\nfunction firstNonEmpty(...values) {\r\n  for (const value of values) {\r\n    const text = decodeEntities(value);\r\n    if (text) return text;\r\n  }\r\n  return \"\";\r\n}\r\n\r\nfunction looksLikeAddress(text) {\r\n  if (!text || text.length > 320) return false;\r\n  if (\r\n    /\\b(your location|location[- ]based|tax(?:es)?|shipping|delivery|billing address|api|json|sdk|browser|settings|language|country selector)\\b/i.test(\r\n      text,\r\n    )\r\n  ) {\r\n    return false;\r\n  }\r\n\r\n  if (\r\n    /\\b\\d{1,6}\\s+[A-Za-z0-9][A-Za-z0-9.'-]*(?:\\s+[A-Za-z0-9][A-Za-z0-9.'-]*){0,5}\\s+(?:street|st|road|rd|avenue|ave|boulevard|blvd|lane|ln|drive|dr|way|place|pl|court|ct|highway|hwy|parkway|pkwy)\\b/i.test(\r\n      text,\r\n    )\r\n  ) {\r\n    return true;\r\n  }\r\n\r\n  if (/\\b[A-Z][a-z]+(?:\\s+[A-Z][a-z]+)*,\\s*(?:[A-Z]{2}|[A-Z][a-z]+)\\s+\\d{5}(?:-\\d{4})?\\b/.test(text)) return true;\r\n  if (/\\b\\d{6}\\b/.test(text) && /\\b(?:sector|plot|road|street|building|tower|floor|near|industrial|tech park)\\b/i.test(text)) return true;\r\n\r\n  return (\r\n    /\\b(?:headquarters|head office|main office|corporate office|our office|visit us at|located at|located in|based in)\\b/i.test(\r\n      text,\r\n    ) && !/\\bbased on\\b/i.test(text)\r\n  );\r\n}\r\n\r\nfunction looksLikePricing(text, isPricingPage) {\r\n  if (!text || text.length > 320) return false;\r\n  if (\r\n    /^(?:watch|read|learn|see how|discover|explore|contact|get started)\\b/i.test(text) ||\r\n    /\\b(?:news|story|blog|careers|partner program|customer story|case study|offers .* with|grows into|partners with)\\b/i.test(\r\n      text,\r\n    )\r\n  ) {\r\n    return false;\r\n  }\r\n\r\n  const hasPrice =\r\n    /(?:[$€£₹]\\s?\\d|\\d+(?:\\.\\d+)?\\s?%|\\b(?:free|trial|starting at|per month|per user|per seat|usage-based|annual|monthly|hourly)\\b)/i.test(\r\n      text,\r\n    );\r\n  if (!hasPrice) return false;\r\n\r\n  if (isPricingPage) return true;\r\n  return /\\b(?:price|pricing|plans?|cost|fee|fees|subscription|billing|quote|charged|charge|rate|rates)\\b/i.test(text);\r\n}\r\n\r\nfor (const item of allItems) {\n  const data = item.json || {};\n  const pageType = data.pageType || \"home\";\n  const status = Number(data.statusCode || data.status || 0);\n  if (status) statusCodes.push(status);\n\n  const rawHtml =\n    typeof data.body === \"string\"\n      ? data.body\n      : typeof data.data === \"string\"\n        ? data.data\n        : typeof data.html === \"string\"\n          ? data.html\n          : \"\";\n\n  if (status >= 400) {\n    failedPages.push(`${pageType}: HTTP ${status}`);\n    continue;\n  }\n\n  if (data.error || !rawHtml || rawHtml.length < 200) {\n    failedPages.push(`${pageType}: empty response`);\n    continue;\n  }\n\n  if (\n    /cf-browser-verification|challenge-platform|Just a moment\\.\\.\\.|Attention Required!|Access denied/i.test(rawHtml) &&\n    rawHtml.length < 20000\n  ) {\n    blocked = true;\n    failedPages.push(`${pageType}: blocked by bot protection`);\n    continue;\n  }\n\n  const titleMatch = rawHtml.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i);\n  const pageTitleCandidate = titleMatch ? decodeEntities(titleMatch[1]) : \"\";\n  const metaMatch =\n    rawHtml.match(/<meta[^>]+(?:name=['\"]description['\"]|property=['\"]og:description['\"])[^>]+content=['\"]([^'\"]*)['\"]/i) ||\n    rawHtml.match(/<meta[^>]+content=['\"]([^'\"]*)['\"][^>]+(?:name=['\"]description['\"]|property=['\"]og:description['\"])/i);\n  const metaCandidate = metaMatch ? decodeEntities(metaMatch[1]) : \"\";\n\n  if (!pageTitle) pageTitle = decodeEntities(data.pageTitle || data.title || \"\") || pageTitleCandidate;\r\n  if (!metaDesc) metaDesc = decodeEntities(data.metaDescription || data.description || \"\") || metaCandidate;\n\n  let cleaned = rawHtml\n    .replace(/<script\\b[^<]*(?:(?!<\\/script>)<[^<]*)*<\\/script>/gi, \" \")\n    .replace(/<style\\b[^<]*(?:(?!<\\/style>)<[^<]*)*<\\/style>/gi, \" \")\n    .replace(/<svg\\b[^<]*(?:(?!<\\/svg>)<[^<]*)*<\\/svg>/gi, \" \")\n    .replace(/<noscript\\b[^<]*(?:(?!<\\/noscript>)<[^<]*)*<\\/noscript>/gi, \" \")\n    .replace(/<template\\b[^<]*(?:(?!<\\/template>)<[^<]*)*<\\/template>/gi, \" \")\n    .replace(/<nav\\b[^<]*(?:(?!<\\/nav>)<[^<]*)*<\\/nav>/gi, \" \")\r\n    .replace(/<header\\b[^<]*(?:(?!<\\/header>)<[^<]*)*<\\/header>/gi, \" \")\r\n    .replace(/<!--[\\s\\S]*?-->/g, \" \")\r\n    .replace(/!\\[[^\\]]*\\]\\([^)]+\\)/g, \" \")\r\n    .replace(/\\[([^\\]]+)\\]\\([^)]+\\)/g, \"$1\");\n\n  const headingMatches = cleaned.matchAll(/<(h[1-3])[^>]*>([\\s\\S]*?)<\\/\\1>/gi);\r\n  for (const match of headingMatches) {\r\n    const text = decodeEntities(match[2].replace(/<[^>]+>/g, \" \"));\r\n    if (/^(home|about|contact|login|sign in|sign up|menu|search|blog|careers|privacy|terms)$/i.test(text)) continue;\r\n    addUnique(headings, text, 14, 3);\r\n  }\r\n\r\n  const mdHeadingMatches = cleaned.matchAll(/^#{1,3}\\s+([^\\n#]{3,120})$/gm);\r\n  for (const match of mdHeadingMatches) {\r\n    const text = decodeEntities(match[1]);\r\n    if (/^(home|about|contact|login|sign in|sign up|menu|search|blog|careers|privacy|terms)$/i.test(text)) continue;\r\n    addUnique(headings, text, 14, 3);\r\n  }\r\n\r\n  const text = decodeEntities(\r\n    cleaned\r\n      .replace(/<[^>]+>/g, \" \")\r\n      .replace(/^\\s{0,3}[#>*+-]+\\s*/gm, \" \")\r\n      .replace(/[*_`~]/g, \" \"),\r\n  );\n  totalTextLength += text.length;\n  successfulPages += 1;\n\n  const sentences = text\n    .split(/[.!?]\\s+/)\n    .map((sentence) => sentence.trim())\n    .filter((sentence) => sentence.length >= 25);\n\n  const isContactPage = pageType === \"contact\";\r\n  const isPricingPage = pageType === \"pricing\" || pageType === \"plans\";\r\n  const isFaqPage = pageType === \"faq\";\r\n\r\n  for (const sentence of sentences) {\r\n    if (locationSnippets.length < 2 && sentence.length <= 300) {\r\n      const contactAddress =\r\n        isContactPage &&\r\n        /\\b(?:address|headquarters|head office|located|location|visit us|our office)\\b/i.test(sentence) &&\r\n        !/\\b(?:null|json|api|tax|shipping|billing)\\b/i.test(sentence);\r\n      if (looksLikeAddress(sentence) || contactAddress) {\r\n        addUnique(locationSnippets, sentence, 2, 20);\r\n      }\r\n    }\r\n\r\n    if (pricingSnippets.length < 3 && looksLikePricing(sentence, isPricingPage)) {\r\n      addUnique(pricingSnippets, sentence, 3, 15);\r\n    }\r\n\r\n    if (\r\n      generalSnippets.length < 8 &&\r\n      sentence.length >= 50 &&\r\n      sentence.length <= 300 &&\r\n      !/\\b(cookie|privacy policy|terms of service|all rights reserved|copyright|©|subscribe|newsletter|javascript)\\b/i.test(sentence)\r\n    ) {\r\n      addUnique(generalSnippets, sentence, 8, 40);\r\n    }\r\n  }\r\n\r\n  const qaMatches = text.matchAll(/([A-Z][^?]{10,100}\\?)\\s+([^?]{20,240}[.!?])/g);\r\n  for (const match of qaMatches) {\r\n    if (faqSnippets.length >= 4) break;\r\n    const qa = `${decodeEntities(match[1])} ${decodeEntities(match[2])}`;\r\n    const relevant =\r\n      isFaqPage ||\r\n      /\\b(?:pricing|price|plan|support|trial|refund|shipping|account|security|privacy|integration|api|product|service|cancel|contact)\\b/i.test(\r\n        qa,\r\n      );\r\n    if (\r\n      relevant &&\r\n      !/\\b(?:cookie|privacy|terms)\\b/i.test(qa) &&\r\n      !/\\b(?:ready to get started|watch the video|read more|subscribe|newsletter)\\b/i.test(qa)\r\n    ) {\r\n      addUnique(faqSnippets, qa, 4, 30);\r\n    }\r\n  }\r\n}\n\nconst hardErrorTitle = /^(404|403|500|502|503)\\b|page not found|domain (is )?for sale|under construction|coming soon|just a moment|attention required/i;\nconst hasReadableContent = Boolean(pageTitle || metaDesc || headings.length || generalSnippets.length) && totalTextLength >= 150;\nconst errorTitle = hardErrorTitle.test(pageTitle);\nconst scrapeSuccess = successfulPages > 0 && hasReadableContent && !errorTitle;\n\nlet scrapeError = \"\";\nif (!scrapeSuccess) {\n  if (blocked) {\n    scrapeError = \"The website blocked the scraper with bot protection or a JavaScript challenge.\";\n  } else if (errorTitle) {\n    scrapeError = `The website returned an error or placeholder page (${pageTitle || \"unknown title\"}).`;\n  } else if (successfulPages === 0) {\n    scrapeError = \"No pages could be fetched. The website may be offline, blocking requests, or returning errors.\";\n  } else {\n    scrapeError = \"The fetched pages did not contain enough readable company content. The site may render its content with JavaScript.\";\n  }\n}\n\nconst condensedContext = [\n  `COMPANY TARGET: ${targetUrl}`,\n  `PAGE TITLE: ${pageTitle || \"Not found\"}`,\n  `META DESCRIPTION: ${metaDesc || \"Not found\"}`,\n  `SCRAPE COVERAGE: ${successfulPages} of ${allItems.length} pages fetched`,\n  \"\",\n  \"LOCATION / ADDRESS:\",\n  locationSnippets.length ? locationSnippets.join(\"\\n\") : \"Not found in scraped pages.\",\n  \"\",\n  \"PRICING / FEES:\",\n  pricingSnippets.length ? pricingSnippets.join(\"\\n\") : \"Not found in scraped pages.\",\n  \"\",\n  \"FAQ / POLICIES:\",\n  faqSnippets.length ? faqSnippets.join(\"\\n\") : \"Not found in scraped pages.\",\n  \"\",\n  \"HEADINGS / OFFERINGS:\",\n  headings.length ? headings.join(\"\\n\") : \"Not found in scraped pages.\",\n  \"\",\n  \"KEY EXCERPTS:\",\n  generalSnippets.length ? generalSnippets.join(\"\\n\") : \"Not found in scraped pages.\"\n]\n  .join(\"\\n\")\n  .trim();\n\nreturn [\n  {\n    json: {\n      url: targetUrl,\n      isWebhook: isWebhook,\n      retellApiKey: retellApiKey,\n      pageTitle: pageTitle,\n      metaDescription: metaDesc,\n      extractedContext: condensedContext,\n      scrapeSuccess: scrapeSuccess,\n      scrapeError: scrapeError,\n      pagesFetched: successfulPages,\n      pagesAttempted: allItems.length,\n      failedPages: failedPages,\n      statusCodes: statusCodes,\n      locationData: locationSnippets.join(\"; \"),\n      pricingData: pricingSnippets.join(\"; \"),\n      faqData: faqSnippets.join(\"; \"),\n      headings: headings.slice(0, 10),\n      generalSnippets: generalSnippets.slice(0, 6)\n    }\n  }\n];\n\r\n"
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000005",
+      "name": "Parse & Clean Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an analyst. Using ONLY the scraped website context below, output a valid JSON object summarizing the company. Return ONLY raw JSON without markdown backticks or commentary.\n\nContext:\n{{ $json.extractedContext }}\n\nOutput format:\n{\n  \"company_name\": \"\",\n  \"one_liner\": \"\",\n  \"what_the_company_does\": \"\",\n  \"primary_target_audience\": \"\",\n  \"key_products_or_services\": [],\n  \"industry\": \"\",\n  \"key_tags\": [],\n  \"confidence_score\": 85,\n  \"scrape_status\": \"success\"\n}\n\nRules:\n- Never invent locations, prices, guarantees, customer names, or policies that are not in the context.\n- If a field is not supported by the context, use an empty string or an empty array.\n- Do not leave company_name, one_liner, what_the_company_does, key_products_or_services, or industry empty when the context clearly provides that information.\n- Do not treat navigation labels, cookie notices, or legal boilerplate as products.\n- \"what_the_company_does\" must be a plain text string (not an object or set)."
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000006",
+      "name": "Basic LLM Chain",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        1200,
+        360
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": "llama3.2:3b",
+        "options": {
+          "temperature": 0.2,
+          "numPredict": 700
+        }
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000007",
+      "name": "Ollama Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $(\"Extract & Validate URL\").first().json || {};\nconst targetUrl = source.mainUrl || source.url || \"\";\nconst isWebhook = Boolean(source.isWebhook);\nconst userApiKey = source.retellApiKey || \"\";\n\nlet cleanedData = {};\ntry {\n  cleanedData = $(\"Parse & Clean Content\").first().json || {};\n} catch (e) {\n  cleanedData = {};\n}\n\nconst pageTitle = cleanedData.pageTitle || \"\";\nconst metaDesc = cleanedData.metaDescription || \"\";\nconst condensedContext = cleanedData.extractedContext || \"\";\nconst headings = Array.isArray(cleanedData.headings) ? cleanedData.headings : [];\nconst domain = targetUrl\n  .replace(/^https?:\\/\\//i, \"\")\n  .replace(/^www\\./i, \"\")\n  .split(\"/\")[0];\nconst fallbackName = domain ? domain.charAt(0).toUpperCase() + domain.slice(1).split(\".\")[0] : \"Company\";\n\nfunction cleanText(value) {\n  return String(value == null ? \"\" : value).replace(/\\s+/g, \" \").trim();\n}\n\nfunction toList(value) {\n  if (Array.isArray(value)) {\n    return value.map(cleanText).filter(Boolean);\n  }\n  if (typeof value === \"string\") {\n    return value\n      .split(/[,\\n;]/)\n      .map(cleanText)\n      .filter(Boolean);\n  }\n  return [];\n}\n\nconst PROMPT_ARTIFACT =\n  /(?:\\bor an empty string\\b|\\bif unclear\\b|\\bif not stated\\b|\\bgrounded in the context\\b|\\b1 crisp sentence\\b|\\b2 short sentences\\b|\\bProduct 1\\b|\\bProduct 2\\b|\\bTag1\\b|\\bTag2\\b|\\bCompany Name\\b|\\bTarget customers\\b|\\bIndustry name\\b|\\bempty array\\b)/i;\nconst STOP_WORDS = new Set([\n  \"that\",\n  \"with\",\n  \"this\",\n  \"from\",\n  \"they\",\n  \"their\",\n  \"have\",\n  \"your\",\n  \"about\",\n  \"which\",\n  \"when\",\n  \"what\",\n  \"will\",\n  \"more\",\n  \"than\",\n  \"into\",\n  \"over\",\n  \"also\",\n  \"been\",\n  \"were\",\n  \"where\",\n  \"while\",\n  \"would\",\n  \"could\",\n  \"should\",\n  \"using\",\n  \"used\",\n  \"use\",\n  \"and\",\n  \"the\",\n  \"for\",\n  \"are\",\n  \"our\",\n  \"you\",\n  \"can\",\n  \"all\",\n  \"not\",\n  \"but\",\n  \"its\",\n  \"has\",\n  \"was\",\n  \"one\",\n  \"two\",\n  \"company\",\n  \"business\"\n]);\nconst contextWords = new Set(\n  condensedContext\n    .toLowerCase()\n    .split(/[^a-z0-9]+/i)\n    .filter((word) => word.length >= 4 && !STOP_WORDS.has(word)),\n);\n\nfunction sanitizeFact(value) {\n  const text = cleanText(value);\n  if (!text || PROMPT_ARTIFACT.test(text)) return \"\";\n  return text;\n}\n\nfunction isGrounded(value, minHits = 2) {\n  const candidates = Array.from(\n    new Set(\n      String(value || \"\")\n        .toLowerCase()\n        .split(/[^a-z0-9]+/i)\n        .filter((word) => word.length >= 4 && !STOP_WORDS.has(word)),\n    ),\n  );\n  if (!candidates.length) return false;\n  const hits = candidates.filter((word) => contextWords.has(word)).length;\n  return hits >= Math.min(minHits, candidates.length);\n}\n\nconst INDUSTRY_HINTS = [\n  [\"project management\", \"Project management software\"],\n  [\"financial services\", \"Financial services\"],\n  [\"fintech\", \"Financial technology\"],\n  [\"payments\", \"Payments\"],\n  [\"e-commerce\", \"E-commerce\"],\n  [\"healthcare\", \"Healthcare\"],\n  [\"education\", \"Education\"],\n  [\"cybersecurity\", \"Cybersecurity\"],\n  [\"artificial intelligence\", \"Artificial intelligence\"],\n  [\"cloud computing\", \"Cloud computing\"],\n  [\"marketing\", \"Marketing\"],\n  [\"logistics\", \"Logistics\"],\n  [\"real estate\", \"Real estate\"],\n  [\"hospitality\", \"Hospitality\"],\n  [\"software\", \"Software\"],\n  [\"technology\", \"Technology\"]\n];\n\nfunction inferIndustry() {\n  const haystack = `${pageTitle} ${metaDesc} ${condensedContext}`.toLowerCase();\n  if (!haystack.trim()) return \"\";\n  const match = INDUSTRY_HINTS.find(([needle]) => haystack.includes(needle));\n  return match ? match[1] : \"\";\n}\n\nlet rawInput = $json;\nlet textToParse = \"\";\nconst llmFailed = Boolean(rawInput && rawInput.error);\n\nif (rawInput && typeof rawInput === \"object\" && !llmFailed) {\n  if (typeof rawInput.text === \"string\") {\n    textToParse = rawInput.text;\n  } else if (typeof rawInput.output === \"string\") {\n    textToParse = rawInput.output;\n  } else if (rawInput.output && typeof rawInput.output === \"object\") {\n    rawInput = rawInput.output;\n  }\n} else if (typeof rawInput === \"string\") {\n  textToParse = rawInput;\n}\n\nlet raw = rawInput && typeof rawInput === \"object\" && !textToParse && !llmFailed ? rawInput : {};\n\nif (textToParse) {\n  const cleaned = textToParse.replace(/^```(?:json)?\\s*/i, \"\").replace(/```\\s*$/i, \"\").trim();\n\n  try {\n    raw = JSON.parse(cleaned);\n  } catch (e1) {\n    try {\n      const repaired = cleaned.replace(/:\\s*\\{\\s*(\"(?:[^\"\\\\]|\\\\.)*\"(?:\\s*,\\s*\"(?:[^\"\\\\]|\\\\.)*\")*)\\s*\\}/g, \": [$1]\");\n      raw = JSON.parse(repaired);\n    } catch (e2) {\n      raw = null;\n    }\n  }\n\n  if (!raw || typeof raw !== \"object\") {\n    raw = {};\n    const nameMatch = cleaned.match(/\"company_name\"\\s*:\\s*\"([^\"]+)\"/i);\n    if (nameMatch) raw.company_name = nameMatch[1];\n\n    const oneLinerMatch = cleaned.match(/\"one_liner\"\\s*:\\s*\"([^\"]+)\"/i);\n    if (oneLinerMatch) raw.one_liner = oneLinerMatch[1];\n\n    const audienceMatch = cleaned.match(/\"primary_target_audience\"\\s*:\\s*\"([^\"]+)\"/i);\n    if (audienceMatch) raw.primary_target_audience = audienceMatch[1];\n\n    const industryMatch = cleaned.match(/\"industry\"\\s*:\\s*\"([^\"]+)\"/i);\n    if (industryMatch) raw.industry = industryMatch[1];\n\n    const whatMatch = cleaned.match(/\"what_the_company_does\"\\s*:\\s*(?:\\{([^{}]+)\\}|\"([^\"]+)\")/i);\n    if (whatMatch) {\n      const value = whatMatch[1] || whatMatch[2] || \"\";\n      const quotes = Array.from(value.matchAll(/\"([^\"]+)\"/g)).map((match) => match[1]);\n      raw.what_the_company_does = quotes.length ? quotes.join(\" \") : value.trim();\n    }\n\n    const productsMatch = cleaned.match(/\"key_products_or_services\"\\s*:\\s*\\[([\\s\\S]*?)\\]/i);\n    if (productsMatch) {\n      raw.key_products_or_services = Array.from(productsMatch[1].matchAll(/\"([^\"]+)\"/g)).map((match) => match[1]);\n    }\n  }\n}\n\nif (raw && typeof raw === \"object\" && raw.output && typeof raw.output === \"object\") {\n  raw = { ...raw.output, ...raw };\n}\n\nif (!raw || typeof raw !== \"object\" || llmFailed || raw.error) {\n  raw = {};\n}\n\nlet summary = raw.what_the_company_does || raw.summary || raw.description;\nif (Array.isArray(summary)) summary = summary.join(\" \");\nif (summary && typeof summary === \"object\") summary = Object.values(summary).map(cleanText).join(\" \");\nsummary = sanitizeFact(summary);\nconst fragmentStart = /^(?:and|for|with|to|the|a|an|in|on|of|or|but|as|at|by|from|into)\\b/i;\nif (!summary || summary.length < 25 || fragmentStart.test(summary) || !isGrounded(summary)) {\n  const snippetFallback = (cleanedData.generalSnippets || []).slice(0, 2).map(cleanText).filter(Boolean).join(\" \");\n  summary = sanitizeFact(metaDesc) || cleanText(snippetFallback) || \"\";\n}\nif (summary) summary = summary.charAt(0).toUpperCase() + summary.slice(1);\n\nconst summaryLead = summary.match(/^(.{10,180}?[.!?])(?:\\s|$)/);\nlet oneLiner = sanitizeFact(raw.one_liner || raw.tagline);\nif (!oneLiner || !isGrounded(oneLiner)) {\n  oneLiner = summaryLead ? summaryLead[1] : summary ? summary.slice(0, 180) : `Company website at ${domain}.`;\n}\nif (oneLiner) oneLiner = oneLiner.charAt(0).toUpperCase() + oneLiner.slice(1);\n\nconst modelCompanyName = sanitizeFact(raw.company_name || raw.name);\nlet companyName = modelCompanyName;\nif (!companyName) {\n  const titleLead = cleanText(pageTitle.split(/\\s[-|]\\s/)[0]);\n  companyName =\n    titleLead && titleLead.length <= 60 && !/^(home|welcome|official site|website)$/i.test(titleLead)\n      ? titleLead\n      : fallbackName;\n}\n\nlet products = toList(raw.key_products_or_services || raw.products || raw.services).filter(\n  (product) => !PROMPT_ARTIFACT.test(product),\n);\nif (!products.length) {\n  products = headings\n    .map(cleanText)\n    .filter((heading) => heading.length >= 3 && heading.length <= 90)\n    .filter((heading) => !/^(home|about|contact|pricing|blog|careers|login|sign in|sign up|menu|search)$/i.test(heading))\n    .slice(0, 5);\n}\nproducts = Array.from(new Set(products)).slice(0, 8);\n\nlet tags = toList(raw.key_tags || raw.tags || raw.keywords).filter((tag) => !PROMPT_ARTIFACT.test(tag));\nconst industry = sanitizeFact(raw.industry || raw.category) || inferIndustry() || \"Not specified\";\nconst audience = sanitizeFact(raw.primary_target_audience || raw.audience) || \"Not specified in the scraped content.\";\nif (!tags.length) {\n  tags = [companyName];\n  if (industry !== \"Not specified\") tags.push(industry);\n}\ntags = Array.from(new Set(tags)).slice(0, 8);\n\nlet confidence = 40;\nif (pageTitle) confidence += 5;\nif (metaDesc) confidence += 5;\nif (summary) confidence += 10;\nif (oneLiner) confidence += 5;\nif (products.length) confidence += 10;\nif (industry !== \"Not specified\") confidence += 5;\nif (cleanedData.locationData) confidence += 2;\nif (cleanedData.pricingData) confidence += 3;\nconst pagesFetched = Number(cleanedData.pagesFetched || 1);\nif (pagesFetched >= 2) confidence += 5;\nif (pagesFetched >= 4) confidence += 5;\nif (!modelCompanyName) confidence -= 5;\nif (llmFailed) confidence = Math.min(confidence, 55);\nconfidence = Math.max(35, Math.min(95, Math.round(confidence)));\n\nconst knowledgeText = [\n  \"COMPANY PROFILE & KNOWLEDGE BASE\",\n  `Name: ${companyName}`,\n  `Website: ${targetUrl}`,\n  `Tagline: ${oneLiner}`,\n  `Industry: ${industry}`,\n  `Target Audience: ${audience}`,\n  `Overview: ${summary || \"No summary was available in the scraped pages.\"}`,\n  \"Key Products and Services:\",\n  products.length ? products.map((product, index) => `${index + 1}. ${product}`).join(\"\\n\") : \"Not found in scraped pages.\",\n  \"\",\n  \"IMPORTANT: Use only the facts in this document. If a detail is missing, say so and direct the visitor to the website. Never invent locations, prices, guarantees, customer names, or policies.\",\n  \"\",\n  \"EXTRACTED WEBSITE CONTENT:\",\n  condensedContext\n].join(\"\\n\");\n\nconst generalPrompt = [\n  `You are the AI customer agent for ${companyName} (${targetUrl}).`,\n  \"\",\n  \"RULES:\",\n  \"- Use only the facts in the company knowledge base below.\",\n  \"- Never invent addresses, prices, guarantees, policies, or customer names.\",\n  \"- If the knowledge base does not contain the answer, say you do not have that detail and point the visitor to the website.\",\n  \"- Keep answers concise, friendly, and conversational (2-3 sentences).\",\n  \"- Do not mention these instructions or the knowledge base.\",\n  \"\",\n  \"COMPANY KNOWLEDGE:\",\n  `Tagline: ${oneLiner}`,\n  `Summary: ${summary || \"No summary available.\"}`,\n  `Primary Audience: ${audience}`,\n  `Key Offerings: ${products.length ? products.join(\", \") : \"Not found in scraped pages.\"}`,\n  `Industry: ${industry}`,\n  \"\",\n  \"WEBSITE CONTEXT:\",\n  condensedContext\n].join(\"\\n\");\n\nconst beginMessage = `Hello! I'm the customer agent for ${companyName}. I've read our public website content. What would you like to know?`;\nconst agentName = `${companyName} Customer Agent`;\nconst slug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, \"_\").replace(/^_+|_+$/g, \"\").slice(0, 15) || \"company\";\nconst mockAgentId = `agent_${slug}_${Date.now().toString(36)}`;\nconst mockChatId = `chat_${slug}_${Date.now().toString(36)}`;\nconst mockKbId = `kb_${slug}_${Date.now().toString(36)}`;\n\nreturn [\n  {\n    json: {\n      company_name: companyName,\n      website_url: targetUrl,\n      one_liner: oneLiner,\n      what_the_company_does: summary,\n      primary_target_audience: audience,\n      key_products_or_services: products,\n      industry: industry,\n      key_tags: tags,\n      confidence_score: confidence,\n      scrape_status: \"success\",\n      page_title: pageTitle,\n      meta_description: metaDesc,\n      location_info: cleanedData.locationData || \"\",\n      pricing_info: cleanedData.pricingData || \"\",\n      faq_info: cleanedData.faqData || \"\",\n      website_context: condensedContext,\n      pages_fetched: cleanedData.pagesFetched || 0,\n      _isWebhook: isWebhook,\n      retellApiKey: userApiKey || \"\",\n      knowledge_base_name: `Knowledge - ${companyName}`,\n      knowledge_text: knowledgeText,\n      general_prompt: generalPrompt,\n      begin_message: beginMessage,\n      agent_name: agentName,\n      mockAgentId: mockAgentId,\n      mockChatId: mockChatId,\n      mockKbId: mockKbId\n    }\n  }\n];\n"
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000020",
+      "name": "Prepare Retell AI Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.retellai.com/create-knowledge-base",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.retellApiKey || 'missing_key' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  knowledge_base_name: $json.knowledge_base_name,\n  knowledge_base_texts: [\n    {\n      title: 'Company Knowledge & Offerings',\n      text: $json.knowledge_text\n    }\n  ],\n  knowledge_base_urls: [\n    $json.website_url\n  ]\n}) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000021",
+      "name": "Retell AI - Create Knowledge Base",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1800,
+        360
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.retellai.com/create-retell-llm",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Prepare Retell AI Payload').first().json.retellApiKey || 'missing_key' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: 'gpt-4o',\n  general_prompt: $('Prepare Retell AI Payload').first().json.general_prompt,\n  begin_message: $('Prepare Retell AI Payload').first().json.begin_message,\n  knowledge_base_ids: $json.knowledge_base_id ? [$json.knowledge_base_id] : []\n}) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000022",
+      "name": "Retell AI - Create Retell LLM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2080,
+        360
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.retellai.com/create-agent",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Prepare Retell AI Payload').first().json.retellApiKey || 'missing_key' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  response_engine: {\n    type: 'retell-llm',\n    llm_id: $json.llm_id || 'llm_fallback'\n  },\n  voice_id: '11labs-Adrian',\n  agent_name: $('Prepare Retell AI Payload').first().json.agent_name\n}) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000023",
+      "name": "Retell AI - Create Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2360,
+        360
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.retellai.com/create-chat",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Prepare Retell AI Payload').first().json.retellApiKey || 'missing_key' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  agent_id: $json.agent_id || $('Prepare Retell AI Payload').first().json.mockAgentId\n}) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000024",
+      "name": "Retell AI - Create Chat Session",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        360
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "let brief = {};\ntry {\n  brief = $(\"Prepare Retell AI Payload\").first().json || {};\n} catch (e) {\n  brief = {};\n}\n\nlet kbRes = {};\ntry {\n  kbRes = $(\"Retell AI - Create Knowledge Base\").first().json || {};\n} catch (e) {}\nlet llmRes = {};\ntry {\n  llmRes = $(\"Retell AI - Create Retell LLM\").first().json || {};\n} catch (e) {}\nlet agentRes = {};\ntry {\n  agentRes = $(\"Retell AI - Create Agent\").first().json || {};\n} catch (e) {}\nlet chatRes = {};\ntry {\n  chatRes = $(\"Retell AI - Create Chat Session\").first().json || {};\n} catch (e) {}\n\nconst hasError = (value) => Boolean(value && (value.error || value.error_message || value.message));\nconst isLiveRetell = Boolean(agentRes.agent_id && !hasError(agentRes));\nconst agentId = isLiveRetell ? agentRes.agent_id : brief.mockAgentId;\nconst llmId = (llmRes.llm_id && !hasError(llmRes)) ? llmRes.llm_id : `llm_${agentId}`;\nconst kbId = (kbRes.knowledge_base_id && !hasError(kbRes)) ? kbRes.knowledge_base_id : brief.mockKbId;\nconst chatId = (chatRes.chat_id && !hasError(chatRes)) ? chatRes.chat_id : brief.mockChatId;\n\nconst assembled = {\n  company_name: brief.company_name,\n  website_url: brief.website_url,\n  one_liner: brief.one_liner,\n  what_the_company_does: brief.what_the_company_does,\n  primary_target_audience: brief.primary_target_audience,\n  key_products_or_services: brief.key_products_or_services,\n  industry: brief.industry,\n  key_tags: brief.key_tags,\n  confidence_score: brief.confidence_score,\n  scrape_status: brief.scrape_status || \"success\",\n  page_title: brief.page_title || \"\",\n  meta_description: brief.meta_description || \"\",\n  location_info: brief.location_info || \"\",\n  pricing_info: brief.pricing_info || \"\",\n  faq_info: brief.faq_info || \"\",\n  website_context: brief.website_context || \"\",\n  pages_fetched: brief.pages_fetched || 0,\n  statusCode: 200,\n  _isWebhook: brief._isWebhook,\n  retell_ai: {\n    status: isLiveRetell ? \"active\" : \"ready\",\n    is_live: isLiveRetell,\n    agent_id: agentId,\n    llm_id: llmId,\n    knowledge_base_id: kbId,\n    chat_id: chatId,\n    agent_name: brief.agent_name,\n    begin_message: brief.begin_message,\n    chat_interface_url: \"http://localhost:5678/webhook/company-agent-chat/chat\",\n    chat_webhook_url: \"http://localhost:5678/webhook/customer-agent-chat\",\n    web_call_url: isLiveRetell ? `https://beta.retellai.com/agent/${agentId}` : null,\n    created_at: new Date().toISOString()\n  }\n};\n\ntry {\n  const store = $getWorkflowStaticData(\"global\");\n  store.latestBrief = assembled;\n  const briefs = store.briefs || {};\n  const key = String(assembled.website_url || \"\").replace(/\\/+$/, \"\").toLowerCase();\n  if (key) briefs[key] = assembled;\n  const keys = Object.keys(briefs);\n  if (keys.length > 20) {\n    keys.slice(0, keys.length - 20).forEach((oldKey) => delete briefs[oldKey]);\n  }\n  store.briefs = briefs;\n} catch (e) {}\n\nreturn [{ json: assembled }];\n"
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000025",
+      "name": "Assemble Final Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2920,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1a2b3c4-0001-4000-8000-111122223333",
+              "leftValue": "={{ Boolean($json._isWebhook) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000009",
+      "name": "Is Webhook Call?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3180,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": "={{ $json.statusCode || 200 }}"
+        }
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000010",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3420,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const finalData = $json || {};\n\nif (finalData.error || finalData.scrape_status === \"error\" || finalData.ok === false) {\n  return [\n    {\n      json: {\n        status: \"error\",\n        message: finalData.detail || finalData.message || \"The website could not be scraped.\",\n        error: finalData.error || \"SCRAPE_FAILED\",\n        website_url: finalData.website_url || \"\",\n        pages_fetched: finalData.pages_fetched || 0,\n        pages_attempted: finalData.pages_attempted || 0\n      }\n    }\n  ];\n}\n\nconst retell = finalData.retell_ai || {};\nconst chatUrl = retell.chat_interface_url || \"http://localhost:5678/webhook/company-agent-chat/chat\";\n\nreturn [\n  {\n    json: {\n      status: \"success\",\n      message: \"Webpage scraped and customer agent prepared successfully.\",\n      how_to_chat_with_agent: {\n        step_1: \"Open the chat interface link below:\",\n        chat_interface_url: chatUrl,\n        step_2: \"Ask about products, pricing, location, or support using the scraped company context.\"\n      },\n      retell_agent_details: {\n        agent_id: retell.agent_id,\n        knowledge_base_id: retell.knowledge_base_id,\n        chat_id: retell.chat_id,\n        web_call_url: retell.web_call_url\n      },\n      company_name: finalData.company_name,\n      website_url: finalData.website_url,\n      one_liner: finalData.one_liner,\n      what_the_company_does: finalData.what_the_company_does\n    }\n  }\n];\n"
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000011",
+      "name": "Display Summary (UI Test)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3420,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "public": true,
+        "initialMessages": "Hi there! I am the AI customer agent generated from the website scraping. How can I help you today?",
+        "options": {}
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000030",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        180,
+        920
+      ],
+      "webhookId": "company-agent-chat"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json || {};\nconst userMsg = String(input.chatInput || input.message || input.content || \"\").trim();\n\nlet stored = {};\ntry {\n  const store = $getWorkflowStaticData(\"global\");\n  stored = store.latestBrief || {};\n} catch (e) {\n  stored = {};\n}\n\nconst companyName = String(input.company_name || stored.company_name || \"\").trim();\nconst targetUrl = String(input.website_url || stored.website_url || \"\").trim();\nconst site = targetUrl || \"the company website\";\nconst siteLabel = targetUrl.replace(/^https?:\\/\\//i, \"\").replace(/\\/+$/, \"\");\nconst summary = String(input.what_the_company_does || stored.what_the_company_does || \"\").trim();\nconst oneLiner = String(input.one_liner || stored.one_liner || \"\").trim();\nconst audience = String(input.primary_target_audience || stored.primary_target_audience || \"\").trim();\nconst location = String(input.location_info || stored.location_info || \"\").trim();\nconst pricing = String(input.pricing_info || stored.pricing_info || \"\").trim();\nconst faq = String(input.faq_info || stored.faq_info || \"\").trim();\nconst context = String(input.website_context || stored.website_context || \"\").trim();\n\nfunction toList(value) {\n  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);\n  if (typeof value === \"string\") return value.split(/[,\\n]/).map((item) => item.trim()).filter(Boolean);\n  return [];\n}\n\nconst products = toList(input.key_products_or_services || stored.key_products_or_services);\n\nfunction clean(value) {\n  return String(value == null ? \"\" : value).replace(/\\s+/g, \" \").trim();\n}\n\nfunction trimTo(value, max) {\n  const text = clean(value);\n  if (text.length <= max) return text;\n  const cut = text.slice(0, max);\n  return `${cut.slice(0, Math.max(0, cut.lastIndexOf(\" \"))).trim()}...`;\n}\n\nfunction firstSentence(value) {\n  const match = clean(value).match(/^(.{15,220}?[.!?])(?:\\s|$)/);\n  return match ? match[1] : trimTo(value, 220);\n}\n\nfunction relevantExcerpt(query) {\n  const stopWords = new Set([\n    \"the\", \"and\", \"for\", \"with\", \"about\", \"from\", \"this\", \"that\", \"your\", \"you\", \"are\", \"can\",\n    \"what\", \"how\", \"does\", \"company\", \"website\", \"please\", \"tell\", \"have\", \"has\", \"our\", \"their\",\n    \"they\", \"will\", \"would\", \"could\", \"should\", \"there\", \"here\", \"when\", \"where\", \"which\", \"who\",\n    \"why\", \"into\", \"over\", \"under\", \"more\", \"most\", \"some\", \"any\", \"all\", \"not\", \"but\", \"its\"\n  ]);\n  const words = String(query || \"\")\n    .toLowerCase()\n    .split(/[^a-z0-9]+/)\n    .filter((word) => word.length >= 4 && !stopWords.has(word));\n  if (!words.length) return \"\";\n\n  const chunks = context\n    .split(/\\n+|[.!?]\\s+/)\n    .map(clean)\n    .filter((chunk) => chunk.length >= 30)\n    .filter((chunk) => !/^(COMPANY TARGET|PAGE TITLE|META DESCRIPTION|SCRAPE COVERAGE|LOCATION \\/ ADDRESS|PRICING \\/ FEES|FAQ \\/ POLICIES|HEADINGS \\/ OFFERINGS|KEY EXCERPTS)/i.test(chunk));\n\n  let best = { score: 0, text: \"\" };\n  for (const chunk of chunks) {\n    const lower = chunk.toLowerCase();\n    const score = words.reduce((total, word) => total + (lower.includes(word) ? 1 : 0), 0);\n    if (score > best.score) best = { score, text: chunk };\n  }\n  return best.score >= 2 ? trimTo(best.text, 300) : \"\";\n}\n\nif (!userMsg) {\n  return [{ json: { output: \"Please send a question about the company.\" } }];\n}\n\nif (!companyName && !targetUrl) {\n  return [{ json: { output: \"No company has been researched yet. Run a website scrape first, then I can answer questions about that company.\" } }];\n}\n\nconst name = companyName || \"this company\";\nconst q = userMsg.toLowerCase();\nconst excerpt = relevantExcerpt(q);\nconst contactHint = targetUrl\n  ? `You can find current contact details on the contact page at ${targetUrl}.`\n  : \"You can find current contact details on the company website.\";\n\nlet reply = \"\";\n\nif (/\\b(sex|sexy|porn|nude|nsfw|fuck|bitch|penis|vagina|boobs|asshole|bastard|blowjob|dick|pussy|whore|slut|erotic|hooker)\\b/i.test(q)) {\n  reply = `I can only help with questions about ${name}. Please ask about our products, services, pricing, or support.`;\n} else if (/\\b(where|location|address|place|city|state|campus|branch|office|located|directions|reach us)\\b/i.test(q)) {\n  reply = location\n    ? `Here is the location information from the scraped website: ${trimTo(location, 360)}`\n    : `I do not have a verified address in the scraped content for ${name}. ${contactHint}`;\n} else if (/\\b(price|pricing|charge|charges|fee|fees|cost|costs|rate|rates|subscription|billing|quote|how much)\\b/i.test(q)) {\n  reply = pricing\n    ? `Here is the pricing information from the scraped website: ${trimTo(pricing, 360)}`\n    : `I could not find pricing in the scraped pages for ${name}. ${targetUrl ? `Check ${targetUrl} or contact the team for a current quote.` : \"Please check the website or contact the team for a current quote.\"}`;\n} else if (/\\b(faq|support|help|guarantee|sla|security|policy|policies|refund|shipping|delivery)\\b/i.test(q)) {\n  if (faq) {\n    reply = `The website's FAQ or policy content says: ${trimTo(faq, 360)}`;\n  } else if (excerpt) {\n    reply = `Here is a relevant excerpt from the website: ${excerpt}`;\n  } else {\n    reply = `I could not find a support or policy answer in the scraped pages. ${contactHint}`;\n  }\n} else if (/\\b(product|products|service|services|offer|offerings|feature|features|solution|solutions)\\b/i.test(q)) {\n  reply = products.length\n    ? `${name}'s key offerings from the website include: ${products.slice(0, 6).join(\", \")}.`\n    : `I could not find a product or service list in the scraped pages. ${targetUrl ? `Visit ${targetUrl} to see current offerings.` : \"Please check the website for current offerings.\"}`;\n} else if (/\\b(audience|who is|who can|who are|target|eligible|for who|market)\\b/i.test(q)) {\n  reply = audience && !/^not specified/i.test(audience)\n    ? `The website describes the target audience as: ${audience}`\n    : excerpt || `I could not find an explicit audience description in the scraped pages. ${targetUrl ? `Visit ${targetUrl} to learn more.` : \"\"}`.trim();\n} else if (/\\b(contact|email|phone|call|whatsapp|reach)\\b/i.test(q)) {\n  reply = location\n    ? `Contact or location details from the website: ${trimTo(location, 300)}${targetUrl ? ` More details are available at ${targetUrl}.` : \"\"}`\n    : `For current contact details, visit ${targetUrl || \"the company website\"}.`;\n} else if (/\\b(hello|hi|hey|good morning|good afternoon|good evening)\\b/i.test(q)) {\n  reply = `Hello! I'm the AI customer agent for ${name}. I can answer questions using the content scraped from ${siteLabel || site}. What would you like to know?`;\n} else if (/\\b(tagline|elevator|one liner|about|summar|overview|what do you do)\\b/i.test(q)) {\n  const about = oneLiner && !summary ? oneLiner : summary;\n  reply = about\n    ? `${name}: ${trimTo(about, 320)}`\n    : excerpt || `I do not have a verified summary for ${name} in the scraped content. ${targetUrl ? `Visit ${targetUrl} to learn more.` : \"\"}`.trim();\n} else if (excerpt) {\n  reply = `Here is a relevant excerpt from ${name}'s website: ${excerpt}`;\n} else if (summary) {\n  reply = `${name}: ${trimTo(summary, 320)}${products.length ? ` Key offerings include ${products.slice(0, 4).join(\", \")}.` : \"\"}`;\n} else {\n  reply = `I do not have enough scraped information to answer that. ${targetUrl ? `Visit ${targetUrl} or ask about products, pricing, location, or support.` : \"Please ask about products, pricing, location, or support.\"}`;\n}\n\nreturn [\n  {\n    json: {\n      output: reply,\n      company_name: companyName,\n      website_url: targetUrl,\n      generated_at: new Date().toISOString()\n    }\n  }\n];\n"
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000031",
+      "name": "Agent Chat Responder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        920
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "customer-agent-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000032",
+      "name": "Customer Agent Chat Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        180,
+        1100
+      ],
+      "webhookId": "customer-agent-chat-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || $json;\nconst userMsg = String(body.message || body.content || body.chatInput || \"\").trim();\nconst chatId = body.chat_id || \"\";\nconst agentId = body.agent_id || \"\";\n\nlet stored = {};\ntry {\n  const store = $getWorkflowStaticData(\"global\");\n  const key = String(body.website_url || \"\").replace(/\\/+$/, \"\").toLowerCase();\n  const briefs = store.briefs || {};\n  stored = (key && briefs[key]) || store.latestBrief || {};\n} catch (e) {\n  stored = {};\n}\n\nconst companyName = String(body.company_name || stored.company_name || \"\").trim();\nconst targetUrl = String(body.website_url || stored.website_url || \"\").trim();\nconst site = targetUrl || \"the company website\";\nconst siteLabel = targetUrl.replace(/^https?:\\/\\//i, \"\").replace(/\\/+$/, \"\");\nconst summary = String(body.what_the_company_does || stored.what_the_company_does || \"\").trim();\nconst oneLiner = String(body.one_liner || stored.one_liner || \"\").trim();\nconst audience = String(body.primary_target_audience || stored.primary_target_audience || \"\").trim();\nconst location = String(body.location_info || stored.location_info || \"\").trim();\nconst pricing = String(body.pricing_info || stored.pricing_info || \"\").trim();\nconst faq = String(body.faq_info || stored.faq_info || \"\").trim();\nconst context = String(body.website_context || stored.website_context || \"\").trim();\n\nfunction toList(value) {\n  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);\n  if (typeof value === \"string\") return value.split(/[,\\n]/).map((item) => item.trim()).filter(Boolean);\n  return [];\n}\n\nconst products = toList(body.key_products_or_services || stored.key_products_or_services);\n\nfunction clean(value) {\n  return String(value == null ? \"\" : value).replace(/\\s+/g, \" \").trim();\n}\n\nfunction trimTo(value, max) {\n  const text = clean(value);\n  if (text.length <= max) return text;\n  const cut = text.slice(0, max);\n  return `${cut.slice(0, Math.max(0, cut.lastIndexOf(\" \"))).trim()}...`;\n}\n\nfunction relevantExcerpt(query) {\n  const stopWords = new Set([\n    \"the\", \"and\", \"for\", \"with\", \"about\", \"from\", \"this\", \"that\", \"your\", \"you\", \"are\", \"can\",\n    \"what\", \"how\", \"does\", \"company\", \"website\", \"please\", \"tell\", \"have\", \"has\", \"our\", \"their\",\n    \"they\", \"will\", \"would\", \"could\", \"should\", \"there\", \"here\", \"when\", \"where\", \"which\", \"who\",\n    \"why\", \"into\", \"over\", \"under\", \"more\", \"most\", \"some\", \"any\", \"all\", \"not\", \"but\", \"its\"\n  ]);\n  const words = String(query || \"\")\n    .toLowerCase()\n    .split(/[^a-z0-9]+/)\n    .filter((word) => word.length >= 4 && !stopWords.has(word));\n  if (!words.length) return \"\";\n\n  const chunks = context\n    .split(/\\n+|[.!?]\\s+/)\n    .map(clean)\n    .filter((chunk) => chunk.length >= 30)\n    .filter((chunk) => !/^(COMPANY TARGET|PAGE TITLE|META DESCRIPTION|SCRAPE COVERAGE|LOCATION \\/ ADDRESS|PRICING \\/ FEES|FAQ \\/ POLICIES|HEADINGS \\/ OFFERINGS|KEY EXCERPTS)/i.test(chunk));\n\n  let best = { score: 0, text: \"\" };\n  for (const chunk of chunks) {\n    const lower = chunk.toLowerCase();\n    const score = words.reduce((total, word) => total + (lower.includes(word) ? 1 : 0), 0);\n    if (score > best.score) best = { score, text: chunk };\n  }\n  return best.score >= 2 ? trimTo(best.text, 300) : \"\";\n}\n\nif (!userMsg) {\n  return [{ json: { reply: \"Please send a question about the company.\", company_name: companyName, agent_id: agentId, chat_id: chatId, timestamp: new Date().toISOString() } }];\n}\n\nif (!companyName && !targetUrl) {\n  return [{ json: { reply: \"No company has been researched yet. Run a website scrape first, then I can answer questions about that company.\", company_name: \"\", agent_id: agentId, chat_id: chatId, timestamp: new Date().toISOString() } }];\n}\n\nconst name = companyName || \"this company\";\nconst q = userMsg.toLowerCase();\nconst excerpt = relevantExcerpt(q);\nconst contactHint = targetUrl\n  ? `You can find current contact details on the contact page at ${targetUrl}.`\n  : \"You can find current contact details on the company website.\";\n\nlet reply = \"\";\n\nif (/\\b(sex|sexy|porn|nude|nsfw|fuck|bitch|penis|vagina|boobs|asshole|bastard|blowjob|dick|pussy|whore|slut|erotic|hooker)\\b/i.test(q)) {\n  reply = `I can only help with questions about ${name}. Please ask about our products, services, pricing, or support.`;\n} else if (/\\b(where|location|address|place|city|state|campus|branch|office|located|directions|reach us)\\b/i.test(q)) {\n  reply = location\n    ? `Here is the location information from the scraped website: ${trimTo(location, 360)}`\n    : `I do not have a verified address in the scraped content for ${name}. ${contactHint}`;\n} else if (/\\b(price|pricing|charge|charges|fee|fees|cost|costs|rate|rates|subscription|billing|quote|how much)\\b/i.test(q)) {\n  reply = pricing\n    ? `Here is the pricing information from the scraped website: ${trimTo(pricing, 360)}`\n    : `I could not find pricing in the scraped pages for ${name}. ${targetUrl ? `Check ${targetUrl} or contact the team for a current quote.` : \"Please check the website or contact the team for a current quote.\"}`;\n} else if (/\\b(faq|support|help|guarantee|sla|security|policy|policies|refund|shipping|delivery)\\b/i.test(q)) {\n  if (faq) {\n    reply = `The website's FAQ or policy content says: ${trimTo(faq, 360)}`;\n  } else if (excerpt) {\n    reply = `Here is a relevant excerpt from the website: ${excerpt}`;\n  } else {\n    reply = `I could not find a support or policy answer in the scraped pages. ${contactHint}`;\n  }\n} else if (/\\b(product|products|service|services|offer|offerings|feature|features|solution|solutions)\\b/i.test(q)) {\n  reply = products.length\n    ? `${name}'s key offerings from the website include: ${products.slice(0, 6).join(\", \")}.`\n    : `I could not find a product or service list in the scraped pages. ${targetUrl ? `Visit ${targetUrl} to see current offerings.` : \"Please check the website for current offerings.\"}`;\n} else if (/\\b(audience|who is|who can|who are|target|eligible|for who|market)\\b/i.test(q)) {\n  reply = audience && !/^not specified/i.test(audience)\n    ? `The website describes the target audience as: ${audience}`\n    : excerpt || `I could not find an explicit audience description in the scraped pages. ${targetUrl ? `Visit ${targetUrl} to learn more.` : \"\"}`.trim();\n} else if (/\\b(contact|email|phone|call|whatsapp|reach)\\b/i.test(q)) {\n  reply = location\n    ? `Contact or location details from the website: ${trimTo(location, 300)}${targetUrl ? ` More details are available at ${targetUrl}.` : \"\"}`\n    : `For current contact details, visit ${targetUrl || \"the company website\"}.`;\n} else if (/\\b(hello|hi|hey|good morning|good afternoon|good evening)\\b/i.test(q)) {\n  reply = `Hello! I'm the AI customer agent for ${name}. I can answer questions using the content scraped from ${siteLabel || site}. What would you like to know?`;\n} else if (/\\b(tagline|elevator|one liner|about|summar|overview|what do you do)\\b/i.test(q)) {\n  const about = oneLiner && !summary ? oneLiner : summary;\n  reply = about\n    ? `${name}: ${trimTo(about, 320)}`\n    : excerpt || `I do not have a verified summary for ${name} in the scraped content. ${targetUrl ? `Visit ${targetUrl} to learn more.` : \"\"}`.trim();\n} else if (excerpt) {\n  reply = `Here is a relevant excerpt from ${name}'s website: ${excerpt}`;\n} else if (summary) {\n  reply = `${name}: ${trimTo(summary, 320)}${products.length ? ` Key offerings include ${products.slice(0, 4).join(\", \")}.` : \"\"}`;\n} else {\n  reply = `I do not have enough scraped information to answer that. ${targetUrl ? `Visit ${targetUrl} or ask about products, pricing, location, or support.` : \"Please ask about products, pricing, location, or support.\"}`;\n}\n\nreturn [\n  {\n    json: {\n      reply: reply,\n      company_name: companyName,\n      agent_id: agentId,\n      chat_id: chatId,\n      timestamp: new Date().toISOString()\n    }\n  }\n];\n"
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000033",
+      "name": "Process Agent Chat Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        1100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "b3e0c001-9f12-4c20-a8d1-000000000034",
+      "name": "Respond to Chat Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        700,
+        1100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c7d8e9f0-1111-4222-8333-444455556666",
+              "leftValue": "={{ Boolean($json.scrapeSuccess) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c7d8e9f0-1111-4222-8333-444455556666",
+      "name": "Scrape Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const failed = $json || {};\nconst message = failed.scrapeError || \"The website could not be scraped.\";\n\nreturn [\n  {\n    json: {\n      ok: false,\n      error: \"SCRAPE_FAILED\",\n      detail: message,\n      message: message,\n      scrape_status: \"error\",\n      company_name: \"\",\n      website_url: failed.url || \"\",\n      pages_fetched: failed.pagesFetched || 0,\n      pages_attempted: failed.pagesAttempted || 0,\n      failed_pages: failed.failedPages || [],\n      statusCode: 422,\n      _isWebhook: Boolean(failed.isWebhook)\n    }\n  }\n];\n"
+      },
+      "id": "d8e9f0a1-2222-4333-8444-555566667777",
+      "name": "Build Scrape Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1240,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e9f0a1b2-3333-4444-8555-666677778888",
+              "leftValue": "={{ Boolean($json.valid) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e9f0a1b2-3333-4444-8555-666677778888",
+      "name": "URL Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        560,
+        340
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract & Validate URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "Extract & Validate URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract & Validate URL": {
+      "main": [
+        [
+          {
+            "node": "URL Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Website HTML": {
+      "main": [
+        [
+          {
+            "node": "Parse & Clean Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Clean Content": {
+      "main": [
+        [
+          {
+            "node": "Scrape Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Prepare Retell AI Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Retell AI Payload": {
+      "main": [
+        [
+          {
+            "node": "Retell AI - Create Knowledge Base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retell AI - Create Knowledge Base": {
+      "main": [
+        [
+          {
+            "node": "Retell AI - Create Retell LLM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retell AI - Create Retell LLM": {
+      "main": [
+        [
+          {
+            "node": "Retell AI - Create Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retell AI - Create Agent": {
+      "main": [
+        [
+          {
+            "node": "Retell AI - Create Chat Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retell AI - Create Chat Session": {
+      "main": [
+        [
+          {
+            "node": "Assemble Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Final Response": {
+      "main": [
+        [
+          {
+            "node": "Is Webhook Call?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Webhook Call?": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Display Summary (UI Test)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Agent Chat Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Customer Agent Chat Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Agent Chat Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Agent Chat Message": {
+      "main": [
+        [
+          {
+            "node": "Respond to Chat Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Scrape Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Scrape Error": {
+      "main": [
+        [
+          {
+            "node": "Is Webhook Call?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "URL Valid?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Website HTML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Scrape Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
