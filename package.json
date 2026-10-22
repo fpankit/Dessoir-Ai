@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "push": "powershell -ExecutionPolicy Bypass -File ./scripts/auto-push.ps1",
+    "push:watch": "powershell -ExecutionPolicy Bypass -File ./scripts/auto-push-watch.ps1"
   },
   "dependencies": {
     "@clerk/react": "^6.18.0",
