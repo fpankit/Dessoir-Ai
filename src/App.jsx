@@ -1016,11 +1016,11 @@ function Header({ menuOpen, setMenuOpen, page = "home" }) {
             <>
               <a
                 className="login-link"
-                href="/scraper.html"
+                href="/dashboard.html"
                 style={{ fontWeight: 600 }}
                 onClick={() => setMenuOpen(false)}
               >
-                Console
+                Dashboard
               </a>
               <UserButton afterSignOutUrl="/" />
             </>
@@ -1090,10 +1090,10 @@ function Header({ menuOpen, setMenuOpen, page = "home" }) {
             <>
               <a
                 className="button button-dark"
-                href="/scraper.html"
+                href="/dashboard.html"
                 onClick={() => setMenuOpen(false)}
               >
-                Go to Console
+                Go to Dashboard
                 <ArrowUpRight size={16} strokeWidth={2} aria-hidden="true" />
               </a>
               <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 10 }}>
@@ -3750,7 +3750,7 @@ function AuthPage() {
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      window.location.href = "/onboarding.html";
+      window.location.href = "/dashboard.html";
     }
   }, [isLoaded, isSignedIn]);
 
@@ -3801,13 +3801,13 @@ function AuthPage() {
             {isSignIn ? (
               <SignIn
                 routing="hash"
-                fallbackRedirectUrl="/onboarding.html"
+                fallbackRedirectUrl="/dashboard.html"
                 signUpUrl="/auth.html?mode=signup"
               />
             ) : (
               <SignUp
                 routing="hash"
-                fallbackRedirectUrl="/onboarding.html"
+                fallbackRedirectUrl="/dashboard.html"
                 signInUrl="/auth.html?mode=signin"
               />
             )}

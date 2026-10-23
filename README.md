@@ -5,7 +5,7 @@ A high-performance, modular **n8n workflow** designed to take any company websit
 ---
 
 - **[`workflow.json`](./workflow.json)**: The complete n8n workflow file.
-- **[`scraper.html`](./scraper.html)**: The research console, linked to your n8n workflow.
+- **[`dashboard.html`](./dashboard.html)**: The workspace where signed-in users research companies, manage agents, and chat with them.
 - **[`index.html`](./index.html) / [`pricing.html`](./pricing.html) / [`auth.html`](./auth.html)**: Marketing, pricing, and sign-up pages.
 - **[`src/`](./src)**: React app, styles, and API services.
 - **[`test_scraper.py`](./test_scraper.py)**: Python terminal test script.
@@ -118,7 +118,7 @@ After each successful fetch and analysis of a company website:
 1. **Knowledge Base Synced to Retell AI:** The condensed context and structured company profile are automatically prepared and synced to Retell AI via `https://api.retellai.com/create-knowledge-base`.
 2. **Customer Agent Provisioned:** A custom Retell LLM (`/create-retell-llm`) and Voice/Chat Agent (`/create-agent`) are created with a specialized customer support prompt grounded in the scraped data.
 3. **Interactive Chat Options:**
-   - **In-App Chat Interface:** Opens automatically on the research console (`scraper.html`) with an interactive chat drawer, voice call option, and suggestion chips that give real-time responses.
+   - **In-App Chat Interface:** Opens inside the dashboard (`dashboard.html`) with an interactive chat drawer, voice call option, and suggestion chips that give real-time responses.
    - **n8n Hosted Web Chat:** Open `http://localhost:5678/webhook/company-agent-chat/chat` to talk to the agent in n8n's native LangChain Chat Interface.
    - **Chat API Webhook:**
      ```bash

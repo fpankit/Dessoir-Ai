@@ -133,7 +133,7 @@ export default function AuthPage() {
   const isSignIn = params.get("mode") === "signin";
   const website = params.get("website") || "";
   const websiteParam = website ? `&website=${encodeURIComponent(website)}` : "";
-  const onboardingUrl = `/onboarding.html${website ? `?website=${encodeURIComponent(website)}` : ""}`;
+  const dashboardUrl = `/dashboard.html${website ? `?website=${encodeURIComponent(website)}` : ""}`;
   const switchHref = `/auth.html?mode=${isSignIn ? "signup" : "signin"}${websiteParam}`;
   const { isLoaded, isSignedIn } = useUser();
   const [slowLoad, setSlowLoad] = useState(false);
@@ -153,22 +153,22 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      window.location.href = onboardingUrl;
+      window.location.href = dashboardUrl;
     }
-  }, [isLoaded, isSignedIn, onboardingUrl]);
+  }, [isLoaded, isSignedIn, dashboardUrl]);
 
   const authForm = isSignIn ? (
     <SignIn
       routing="hash"
       appearance={clerkAppearance}
-      fallbackRedirectUrl={onboardingUrl}
+      fallbackRedirectUrl={dashboardUrl}
       signUpUrl={`/auth.html?mode=signup${websiteParam}`}
     />
   ) : (
     <SignUp
       routing="hash"
       appearance={clerkAppearance}
-      fallbackRedirectUrl={onboardingUrl}
+      fallbackRedirectUrl={dashboardUrl}
       signInUrl={`/auth.html?mode=signin${websiteParam}`}
     />
   );
@@ -244,7 +244,7 @@ export default function AuthPage() {
         <footer className="auth-foot">
           <span>© 2026 Dessoir Ai.</span>
           <span className="auth-foot-links">
-            <a href="/scraper.html">Research console</a>
+            <a href="/dashboard.html">Workspace</a>
             <span aria-hidden="true">·</span>
             <a href="/#top">Privacy</a>
             <span aria-hidden="true">·</span>
@@ -298,9 +298,9 @@ export default function AuthPage() {
 
         <a
           className="auth-bubble"
-          href="/scraper.html"
-          aria-label="Open the research console"
-          title="Open the research console"
+          href="/dashboard.html"
+          aria-label="Open your workspace"
+          title="Open your workspace"
         >
           <FlowerMark size={22} />
         </a>

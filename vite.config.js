@@ -25,8 +25,7 @@ export default defineConfig(({ mode }) => {
           main: resolve(root, 'index.html'),
           pricing: resolve(root, 'pricing.html'),
           auth: resolve(root, 'auth.html'),
-          onboarding: resolve(root, 'onboarding.html'),
-          scraper: resolve(root, 'scraper.html')
+          dashboard: resolve(root, 'dashboard.html')
         }
       }
     },

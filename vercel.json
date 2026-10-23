@@ -18,16 +18,34 @@
     },
     {
       "source": "/onboarding",
-      "destination": "/onboarding.html",
+      "destination": "/dashboard.html",
+      "permanent": true
+    },
+    {
+      "source": "/onboarding.html",
+      "destination": "/dashboard.html",
+      "permanent": true
+    },
+    {
+      "source": "/dashboard",
+      "destination": "/dashboard.html",
       "permanent": true
     },
     {
       "source": "/scraper",
-      "destination": "/scraper.html",
+      "destination": "/dashboard.html",
+      "permanent": true
+    },
+    {
+      "source": "/scraper.html",
+      "destination": "/dashboard.html",
       "permanent": true
     }
   ],
   "functions": {
+    "api/dashboard/profile.js": {
+      "maxDuration": 15
+    },
     "api/n8n/health.js": {
       "maxDuration": 60
     },
@@ -88,16 +106,7 @@
       ]
     },
     {
-      "source": "/onboarding.html",
-      "headers": [
-        {
-          "key": "X-Robots-Tag",
-          "value": "noindex, nofollow, noarchive"
-        }
-      ]
-    },
-    {
-      "source": "/scraper.html",
+      "source": "/dashboard.html",
       "headers": [
         {
           "key": "X-Robots-Tag",

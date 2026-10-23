@@ -132,7 +132,7 @@ test("security headers are present in vercel.json", () => {
 });
 
 test("all HTML entry points keep the hardened meta CSP", () => {
-  for (const file of ["index.html", "auth.html", "onboarding.html", "pricing.html", "scraper.html"]) {
+  for (const file of ["index.html", "auth.html", "pricing.html", "dashboard.html"]) {
     const html = readFileSync(join(root, file), "utf8");
     const match = html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/);
     assert.ok(match, `${file} is missing CSP`);
@@ -147,15 +147,14 @@ test("all HTML entry points keep the hardened meta CSP", () => {
 test("client code never contains the n8n shared secret", () => {
   const scraperApi = readFileSync(join(root, "src/services/scraperApi.js"), "utf8");
   const chatApi = readFileSync(join(root, "src/services/chatApi.js"), "utf8");
-  const scraperApp = readFileSync(join(root, "src/scraper/ScraperApp.jsx"), "utf8");
+  const dashboardApp = readFileSync(join(root, "src/dashboard/DashboardApp.jsx"), "utf8");
   const clerkRoot = readFileSync(join(root, "src/ClerkRoot.jsx"), "utf8");
   assert.ok(!scraperApi.includes("VITE_N8N_SHARED_SECRET"));
   assert.ok(!chatApi.includes("N8N_SHARED_SECRET"));
   assert.ok(!scraperApi.includes("shared_secret:"));
   assert.match(scraperApi, /API_BASE = "\/api\/n8n"/);
-  assert.match(scraperApp, /isSignedIn/);
-  assert.match(scraperApp, /function ScraperConsole/);
-  assert.match(scraperApp, /window\.location\.replace\("\/auth\.html\?mode=signin"\)/);
+  assert.match(dashboardApp, /isSignedIn/);
+  assert.match(dashboardApp, /window\.location\.replace\("\/auth\.html\?mode=signin"\)/);
   assert.match(clerkRoot, /AuthTokenBridge/);
   assert.match(clerkRoot, /setAuthTokenProvider/);
 });

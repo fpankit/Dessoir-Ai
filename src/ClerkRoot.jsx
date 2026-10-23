@@ -86,8 +86,8 @@ export default function ClerkRoot({ children }) {
       localization={{ dividerText: "Or continue with" }}
       signInUrl="/auth.html?mode=signin"
       signUpUrl="/auth.html?mode=signup"
-      signInFallbackRedirectUrl="/onboarding.html"
-      signUpFallbackRedirectUrl="/onboarding.html"
+      signInFallbackRedirectUrl="/dashboard.html"
+      signUpFallbackRedirectUrl="/dashboard.html"
       afterSignOutUrl="/"
     >
       <FirestoreAuthSync />

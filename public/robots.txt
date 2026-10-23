@@ -1,8 +1,7 @@
 User-agent: *
 Allow: /
 Disallow: /auth.html
-Disallow: /onboarding.html
-Disallow: /scraper.html
+Disallow: /dashboard.html
 Disallow: /api/
 
 Sitemap: https://dessoir-ai.vercel.app/sitemap.xml

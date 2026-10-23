@@ -11,6 +11,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:security": "node --test tests/security.test.mjs",
+    "test:dashboard": "node --test tests/dashboard.test.mjs",
     "check:secrets": "node scripts/check-no-client-secrets.mjs",
     "push": "powershell -ExecutionPolicy Bypass -File ./scripts/auto-push.ps1",
     "push:watch": "powershell -ExecutionPolicy Bypass -File ./scripts/auto-push-watch.ps1"

@@ -213,6 +213,10 @@ function groundedReply(query, brief = {}) {
   }`;
 }
 
+export function answerFromKnowledgeBase(text, brief = {}) {
+  return groundedReply(text, brief);
+}
+
 export async function sendAgentMessage(text, brief, history = []) {
   const message = String(text || "").trim();
   if (!message) {

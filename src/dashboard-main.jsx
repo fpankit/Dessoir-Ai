@@ -1,14 +1,15 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import ScraperApp from "./scraper/ScraperApp";
+import DashboardApp from "./dashboard/DashboardApp";
 import ClerkRoot from "./ClerkRoot";
 import "./styles.css";
-import "./scraper.css";
+import "./components/brand.css";
+import "./dashboard/dashboard.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <ClerkRoot>
-      <ScraperApp />
+      <DashboardApp />
     </ClerkRoot>
   </React.StrictMode>
 );
