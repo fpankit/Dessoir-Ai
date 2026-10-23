@@ -22,7 +22,8 @@ export function AnimatedBeam({
   startXOffset = 0,
   startYOffset = 0,
   endXOffset = 0,
-  endYOffset = 0
+  endYOffset = 0,
+  active = true
 }) {
   const id = useId();
   const [pathD, setPathD] = useState("");
@@ -128,19 +129,32 @@ export function AnimatedBeam({
             y1: "0%",
             y2: "0%"
           }}
-          animate={{
-            x1: gradientCoordinates.x1,
-            x2: gradientCoordinates.x2,
-            y1: gradientCoordinates.y1,
-            y2: gradientCoordinates.y2
-          }}
-          transition={{
-            delay,
-            duration,
-            ease: [0.16, 1, 0.3, 1],
-            repeat,
-            repeatDelay
-          }}
+          animate={
+            active
+              ? {
+                  x1: gradientCoordinates.x1,
+                  x2: gradientCoordinates.x2,
+                  y1: gradientCoordinates.y1,
+                  y2: gradientCoordinates.y2
+                }
+              : {
+                  x1: "0%",
+                  x2: "0%",
+                  y1: "0%",
+                  y2: "0%"
+                }
+          }
+          transition={
+            active
+              ? {
+                  delay,
+                  duration,
+                  ease: [0.16, 1, 0.3, 1],
+                  repeat,
+                  repeatDelay
+                }
+              : { duration: 0 }
+          }
         >
           <stop stopColor={gradientStartColor} stopOpacity="0" />
           <stop stopColor={gradientStartColor} />

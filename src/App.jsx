@@ -594,10 +594,7 @@ function useInView(threshold = 0.25, rootMargin = "0px 0px -6% 0px") {
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
-          setInView(true);
-          observer.unobserve(entry.target);
-        }
+        setInView(entry.isIntersecting);
       },
       { threshold, rootMargin }
     );
@@ -1358,12 +1355,29 @@ function HeroDemo({ onToneChange, onBackgroundSwipe }) {
   const [bookingCursor, setBookingCursor] = useState(false);
   const [bookingPressed, setBookingPressed] = useState(false);
   const [selectedTime, setSelectedTime] = useState("");
+  const [demoVisible, setDemoVisible] = useState(true);
+  const demoRef = useRef(null);
 
   useEffect(() => {
     onToneChange(tone);
   }, [onToneChange, tone]);
 
   useEffect(() => {
+    const node = demoRef.current;
+    if (!node || !("IntersectionObserver" in window)) return undefined;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setDemoVisible(entry.isIntersecting),
+      { threshold: 0 }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!demoVisible) return undefined;
+
     let disposed = false;
     const timers = new Set();
 
@@ -1558,7 +1572,7 @@ function HeroDemo({ onToneChange, onBackgroundSwipe }) {
       timers.forEach((timer) => clearTimeout(timer));
       timers.clear();
     };
-  }, [onToneChange, onBackgroundSwipe]);
+  }, [onToneChange, onBackgroundSwipe, demoVisible]);
 
   const activeCount = enabled.filter(Boolean).length;
   const isSourceCursorVisible =
@@ -1583,6 +1597,7 @@ function HeroDemo({ onToneChange, onBackgroundSwipe }) {
       className={`hero-demo${sceneFading ? " is-fading" : ""}${
         outgoingScene ? " is-swiping" : ""
       }`}
+      ref={demoRef}
       aria-hidden="true"
     >
       <div className={sceneClassName("sources")}>
@@ -2888,15 +2903,25 @@ function DeployVisual({ active }) {
           pathOpacity={0.3}
           gradientStartColor="#ffffff"
           gradientStopColor="#ffd9ec"
+          active={active}
         />
       ))}
     </div>
   );
 }
 
-function OptimizerVisual({ active }) {
+function OptimizerRate({ active }) {
   const resolutionRate = useCountUp(50, 92.4, active, 2000, 350);
-  const drawProgress = Math.min(1, Math.max(0, (resolutionRate - 50) / (92.4 - 50)));
+
+  return (
+    <div>
+      <span className="mini-label">Resolution rate</span>
+      <strong>{resolutionRate.toFixed(1)}%</strong>
+    </div>
+  );
+}
+
+function OptimizerVisual({ active }) {
   const chartPath =
     "M0 62C18 60 30 74 48 82C66 90 82 94 100 92C122 90 134 68 156 62C176 56 194 68 214 56C236 42 250 46 270 32C292 20 310 28 328 16C340 9 350 13 360 10";
 
@@ -2909,10 +2934,7 @@ function OptimizerVisual({ active }) {
           <span className="window-state window-state-light">Last 30 days</span>
         </div>
         <div className="optimizer-headline">
-          <div>
-            <span className="mini-label">Resolution rate</span>
-            <strong>{resolutionRate.toFixed(1)}%</strong>
-          </div>
+          <OptimizerRate active={active} />
           <span className="optimizer-delta">
             <ArrowUpRight size={13} strokeWidth={2.3} aria-hidden="true" />
             18.2%
@@ -2941,16 +2963,12 @@ function OptimizerVisual({ active }) {
               <mask id="chart-fade-mask">
                 <rect width="360" height="124" fill="url(#chart-fade)" />
               </mask>
-              <clipPath id="chart-reveal">
-                <rect width={360 * drawProgress} height="124" />
-              </clipPath>
             </defs>
             <path
               className="chart-area"
               d={`${chartPath}L360 124L0 124Z`}
               fill="url(#chart-fill)"
               mask="url(#chart-fade-mask)"
-              clipPath="url(#chart-reveal)"
             />
             <path
               className="chart-line"
@@ -2959,16 +2977,15 @@ function OptimizerVisual({ active }) {
               stroke="url(#chart-stroke)"
               strokeWidth="2.5"
               strokeLinecap="round"
-              style={{ strokeDashoffset: 1 - drawProgress }}
             />
             <circle
+              className="chart-endpoint"
               cx="360"
               cy="10"
               r="4"
               fill="#22C55E"
               stroke="#fff"
               strokeWidth="2"
-              style={{ opacity: drawProgress === 1 ? 1 : 0 }}
             />
           </svg>
           <div className="chart-axis">
@@ -3089,8 +3106,12 @@ function useSetupScroll() {
 
     const update = () => {
       frame = null;
-      const middle = window.innerHeight * 0.5;
+      const viewportHeight = window.innerHeight;
+      const middle = viewportHeight * 0.5;
       const rect = body.getBoundingClientRect();
+
+      if (rect.top > viewportHeight || rect.bottom < 0) return;
+
       const progress = Math.min(
         1,
         Math.max(0, (middle - rect.top) / Math.max(rect.height, 1))
@@ -3398,7 +3419,7 @@ function LaunchCta() {
 
         <div className="launch-copy">
           <h2 id="launch-title">
-            Your next <span className="launch-accent">customers</span>
+            Your next <span className="launch-accent">customers</span>{" "}
             <br className="launch-break" />
             are already out there.
           </h2>

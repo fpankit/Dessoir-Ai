@@ -4868,11 +4868,30 @@ button:focus-visible {
 
 .chart-area {
   opacity: 0;
+  transition: opacity 0.9s ease 0.7s;
+}
+
+.stage.is-active .chart-area {
+  opacity: 1;
 }
 
 .chart-line {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
+  transition: stroke-dashoffset 2s cubic-bezier(0.16, 1, 0.3, 1) 0.35s;
+}
+
+.stage.is-active .chart-line {
+  stroke-dashoffset: 0;
+}
+
+.chart-endpoint {
+  opacity: 0;
+  transition: opacity 0.35s ease 2.1s;
+}
+
+.stage.is-active .chart-endpoint {
+  opacity: 1;
 }
 
 .chart-axis {
@@ -6534,7 +6553,8 @@ button:focus-visible {
     stroke-dashoffset: 0;
   }
 
-  .stage .chart-area {
+  .stage .chart-area,
+  .stage .chart-endpoint {
     opacity: 1;
   }
 
@@ -7444,14 +7464,23 @@ button:focus-visible {
     line-height: 24px;
   }
 
-  .outreach-card {
-    width: 280px;
-    height: 280px;
+  .outreach-track {
+    width: max-content;
+    animation: outreach-marquee 18s linear infinite;
   }
 
   .outreach-group {
     gap: 16px;
     padding-right: 16px;
+  }
+
+  .outreach-card {
+    width: 280px;
+    height: 280px;
+  }
+
+  .outreach-smoke {
+    display: none;
   }
 }
 
@@ -7714,12 +7743,12 @@ button:focus-visible {
 
 @media (max-width: 640px) {
   .launch-section {
-    padding: 0 12px 48px;
+    padding: 0 4px 48px;
   }
 
   .launch-panel {
     min-height: 520px;
-    padding: 72px 16px;
+    padding: 72px 7px;
     border-radius: 20px;
   }
 
@@ -7740,16 +7769,43 @@ button:focus-visible {
   }
 
   .launch-input {
-    height: 42px;
+    height: 52px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    font-size: 16px;
   }
 
   .launch-submit {
     width: 100%;
-    height: 44px;
+    height: 52px;
+    font-size: 14px;
   }
 
   .launch-rule,
   .launch-corner {
     display: none;
+  }
+}
+
+@media (hover: none), (max-width: 1080px) {
+  .workflow-card {
+    background: rgba(252, 252, 253, 0.96);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .workflow-copy::before {
+    filter: none;
+  }
+
+  .workflow-note-row,
+  .workflow-meta-pill,
+  .scenario-chip,
+  .channel-chip,
+  .optimizer-meter {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 }
