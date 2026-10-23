@@ -3,14 +3,20 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test:security": "node --test tests/security.test.mjs",
+    "check:secrets": "node scripts/check-no-client-secrets.mjs",
     "push": "powershell -ExecutionPolicy Bypass -File ./scripts/auto-push.ps1",
     "push:watch": "powershell -ExecutionPolicy Bypass -File ./scripts/auto-push-watch.ps1"
   },
   "dependencies": {
+    "@clerk/backend": "^3.26.1",
     "@clerk/react": "^6.18.0",
     "firebase": "^13.1.0",
     "lucide-react": "^0.475.0",

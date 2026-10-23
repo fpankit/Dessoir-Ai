@@ -1,29 +1,26 @@
 import { normalizeBrief } from "../data/sampleBriefs";
+import { authHeaders } from "./authToken";
 
-export const N8N_BASE_URL = "http://localhost:5678";
-export const N8N_PROD_WEBHOOK = `${N8N_BASE_URL}/webhook/company-summary`;
-export const N8N_TEST_WEBHOOK = `${N8N_BASE_URL}/webhook-test/company-summary`;
+export const N8N_BASE_URL =
+  import.meta.env.VITE_N8N_BASE_URL || "http://localhost:5678";
+export const API_BASE = "/api/n8n";
+export const N8N_PROD_WEBHOOK = `${API_BASE}/company-summary`;
+export const N8N_TEST_WEBHOOK = `${API_BASE}/test/company-summary`;
 export const WORKFLOW_ID = "Ggk1Ybv2PwGRpwwN";
 export const WORKFLOW_URL = `${N8N_BASE_URL}/workflow/${WORKFLOW_ID}?projectId=8RvnxgYD82P4zfqz`;
 // Increased timeout for local LLMs (Ollama) on CPU/GPU
 export const REQUEST_TIMEOUT_MS = 180000;
-
-// Shared secret verified inside the n8n workflow (value lives in .env.local
-// as VITE_N8N_SHARED_SECRET and mirrors N8N_SHARED_SECRET on the n8n host).
-export const N8N_SHARED_SECRET =
-  import.meta.env.VITE_N8N_SHARED_SECRET || "";
 
 export async function pingN8nStatus() {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 4000);
 
   try {
-    await fetch(`${N8N_BASE_URL}/healthz`, {
-      mode: "no-cors",
+    const response = await fetch(`${API_BASE}/health`, {
       cache: "no-store",
       signal: controller.signal
     });
-    return true;
+    return response.ok;
   } catch {
     return false;
   } finally {
@@ -45,11 +42,8 @@ export async function executeScrapeRequest(targetUrl) {
     try {
       const response = await fetch(item.endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url: targetUrl,
-          shared_secret: N8N_SHARED_SECRET
-        }),
+        headers: await authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ url: targetUrl }),
         signal: controller.signal
       });
 
@@ -116,7 +110,7 @@ export async function executeScrapeRequest(targetUrl) {
     kind,
     attempts,
     detail: workflowDetail || (kind === "offline"
-      ? "The request could not reach n8n at localhost:5678. Ensure n8n is running and your workflow is Active."
+      ? "The research service is offline. Ensure n8n is running and the server proxy is configured."
       : "")
   };
 }

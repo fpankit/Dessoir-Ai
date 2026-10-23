@@ -10,6 +10,28 @@
   font-family: var(--font-sans);
 }
 
+.sx-gate {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--muted);
+  background: var(--page-bg);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+}
+
+.sx-gate-spinner {
+  animation: sx-spin 1s linear infinite;
+}
+
+@keyframes sx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .sx-topbar {
   position: sticky;
   top: 0;

@@ -1,8 +1,9 @@
-import { N8N_BASE_URL, N8N_SHARED_SECRET } from "./scraperApi";
+import { API_BASE } from "./scraperApi";
+import { authHeaders } from "./authToken";
 
 const CHAT_ENDPOINTS = [
-  { label: "Production Webhook", endpoint: `${N8N_BASE_URL}/webhook/customer-agent-chat` },
-  { label: "Test Webhook", endpoint: `${N8N_BASE_URL}/webhook-test/customer-agent-chat` }
+  { label: "Production Webhook", endpoint: `${API_BASE}/customer-agent-chat` },
+  { label: "Test Webhook", endpoint: `${API_BASE}/test/customer-agent-chat` }
 ];
 
 const CHAT_TIMEOUT_MS = 45000;
@@ -239,9 +240,8 @@ export async function sendAgentMessage(text, brief, history = []) {
     try {
       const response = await fetch(item.endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
-          shared_secret: N8N_SHARED_SECRET,
           message,
           company_name: brief?.company_name,
           website_url: brief?.website_url,

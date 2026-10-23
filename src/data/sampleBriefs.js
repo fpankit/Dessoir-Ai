@@ -129,6 +129,19 @@ export function normalizeUrl(rawValue) {
   }
 }
 
+function safeExternalUrl(rawValue) {
+  const raw = String(rawValue || "").trim();
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    if (parsed.username || parsed.password) return null;
+    return parsed.href;
+  } catch {
+    return null;
+  }
+}
+
 export function buildAgentMeta(companyName, domain) {
   const slug = String(companyName || "company")
     .toLowerCase()
@@ -236,7 +249,18 @@ export function normalizeBrief(raw, targetUrl) {
   }
 
   const companyName = asText(value.company_name) || titleCase(domain.split(".")[0]);
-  const retellMeta = value.retell_ai || buildAgentMeta(companyName, domain);
+  const fallbackMeta = buildAgentMeta(companyName, domain);
+  const rawRetell =
+    value.retell_ai && typeof value.retell_ai === "object" && !Array.isArray(value.retell_ai)
+      ? value.retell_ai
+      : {};
+  const retellMeta = {
+    ...fallbackMeta,
+    ...rawRetell,
+    chat_interface_url: safeExternalUrl(rawRetell.chat_interface_url || fallbackMeta.chat_interface_url),
+    chat_webhook_url: safeExternalUrl(rawRetell.chat_webhook_url || fallbackMeta.chat_webhook_url),
+    web_call_url: safeExternalUrl(rawRetell.web_call_url)
+  };
   const products = asList(value.key_products_or_services || value.products || value.services);
   const tags = asList(value.key_tags || value.tags || value.keywords);
 

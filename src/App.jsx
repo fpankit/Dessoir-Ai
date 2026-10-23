@@ -424,6 +424,39 @@ const outreachCards = [
   }
 ];
 
+const faqItems = [
+  {
+    question: "What is Dessoir Ai?",
+    answer:
+      "Dessoir Ai is an AI agent platform for customer experience. Its conversational agents resolve customer support, sales, and product questions end to end across chat, email, voice, WhatsApp, and Slack, so customers get answers 24/7 without waiting."
+  },
+  {
+    question: "Which channels can Dessoir Ai agents work on?",
+    answer:
+      "Dessoir Ai agents can be deployed across your website chat, email, voice, WhatsApp, Slack, and in-app messaging. One agent uses the same approved knowledge and brand voice on every channel."
+  },
+  {
+    question: "How long does it take to set up an AI agent?",
+    answer:
+      "Most teams go live in about three minutes. Enter your website and Dessoir Ai reads your public content to understand what you sell and how you talk. You can connect help center articles and policies, test answers with real scenarios, then publish."
+  },
+  {
+    question: "Can Dessoir Ai integrate with our helpdesk and CRM?",
+    answer:
+      "Yes. Dessoir Ai connects with popular tools such as Slack, HubSpot, Salesforce, Zendesk, Intercom, Shopify, Stripe, WhatsApp, Gmail, and Twilio, so agents can resolve issues using your existing workflows and data."
+  },
+  {
+    question: "How much does Dessoir Ai cost?",
+    answer:
+      "Plans start at $29 per month billed yearly for the Hobby plan, which includes 700 message credits per month. Standard, Pro, and custom Enterprise plans are also available. Every plan starts with a 7-day free trial and no credit card is required."
+  },
+  {
+    question: "Is Dessoir Ai secure for customer conversations?",
+    answer:
+      "Dessoir Ai is built with authenticated access and guardrails that keep agent answers grounded in your approved sources. Enterprise plans add SSO, higher limits, and flexible billing for larger deployments."
+  }
+];
+
 
 function DessoirAiMark({ size = 26, inverted = false }) {
   return (
@@ -3371,6 +3404,42 @@ function OutreachSection() {
   );
 }
 
+function FAQSection() {
+  return (
+    <section className="faq-section" id="faq" aria-labelledby="faq-title">
+      <div className="faq-inner">
+        <Reveal className="faq-head">
+          <span className="section-kicker">FAQ</span>
+          <h2 id="faq-title">Answers about AI agents for customer experience</h2>
+          <p>
+            Everything you need to know about setting up, connecting, and scaling
+            Dessoir Ai.
+          </p>
+        </Reveal>
+
+        <div className="faq-list">
+          {faqItems.map((item) => (
+            <details className="faq-item" key={item.question}>
+              <summary>
+                <span>{item.question}</span>
+                <span className="faq-icon" aria-hidden="true">
+                  +
+                </span>
+              </summary>
+              <p className="faq-answer">{item.answer}</p>
+            </details>
+          ))}
+        </div>
+
+        <p className="faq-cta">
+          Still deciding? <a href="#cta">Book a demo</a> or{" "}
+          <a href={authHref("signup")}>start your free trial</a>.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 function LaunchCta() {
   const [website, setWebsite] = useState("");
 
@@ -3615,6 +3684,7 @@ function Footer({ inert, page = "home" }) {
             <span>Resources</span>
             <a href={resolveHref("#agents", page)}>Documentation</a>
             <a href={resolveHref("#lifecycle", page)}>Guides</a>
+            <a href={resolveHref("#faq", page)}>FAQ</a>
             <a href={resolveHref("#cta", page)}>Contact</a>
           </div>
         </div>
@@ -3810,10 +3880,20 @@ export default function App({ page = "home" }) {
 
   useEffect(() => {
     if (page === "auth") return undefined;
-    document.title =
-      page === "pricing"
-        ? "Pricing | Dessoir Ai"
-        : "AI Agents for Customer Experience & Support | Dessoir Ai";
+
+    const isPricing = page === "pricing";
+    document.title = isPricing
+      ? "Dessoir Ai Pricing | AI Customer Support Agents"
+      : "Dessoir Ai | AI Agents for Customer Experience & Support";
+
+    const description = isPricing
+      ? "Compare Dessoir Ai plans for AI customer support and customer experience agents. Plans from $29/month with a 7-day free trial. No credit card required."
+      : "Dessoir Ai builds conversational AI agents that resolve customer support, sales, and product questions across chat, email, and voice. Start free.";
+
+    document
+      .querySelector('meta[name="description"]')
+      ?.setAttribute("content", description);
+
     return undefined;
   }, [page]);
 
@@ -3869,6 +3949,7 @@ export default function App({ page = "home" }) {
             <LifecycleSection />
             <SetupSection />
             <OutreachSection />
+            <FAQSection />
             <LaunchCta />
           </>
         )}

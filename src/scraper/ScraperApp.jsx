@@ -748,6 +748,36 @@ function AgentChatPanel({ open, onClose, brief }) {
 }
 
 export default function ScraperApp() {
+  const { isLoaded, isSignedIn } = useAuth();
+
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      window.location.replace("/auth.html?mode=signin");
+    }
+  }, [isLoaded, isSignedIn]);
+
+  if (!isLoaded) {
+    return (
+      <div className="sx-gate" role="status">
+        <Loader2 size={22} className="sx-gate-spinner" />
+        Checking your session…
+      </div>
+    );
+  }
+
+  if (!isSignedIn) {
+    return (
+      <div className="sx-gate" role="status">
+        <ShieldCheck size={22} />
+        Sign in required. Redirecting…
+      </div>
+    );
+  }
+
+  return <ScraperConsole />;
+}
+
+function ScraperConsole() {
   const [target, setTarget] = useState("");
   const [status, setStatus] = useState("idle");
   const [activeStep, setActiveStep] = useState(0);

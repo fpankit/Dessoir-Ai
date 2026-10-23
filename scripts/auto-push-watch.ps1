@@ -29,7 +29,12 @@ while ($true) {
             git -C "$WorkspaceDir" add .
 
             $staged = git -C "$WorkspaceDir" diff --cached --name-only
-            if ($staged) {
+            $blockedFiles = $staged | Where-Object { $_ -match '(^|/)\.env($|\.)' -and $_ -notmatch '\.env\.example$' }
+            if ($blockedFiles) {
+                Write-Host "[ERROR] Refusing to commit environment files:" -ForegroundColor Red
+                $blockedFiles | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+                git -C "$WorkspaceDir" reset --quiet
+            } elseif ($staged) {
                 Write-Host "[2/3] Committing changes: $commitMessage" -ForegroundColor Yellow
                 git -C "$WorkspaceDir" commit -m "$commitMessage"
 

@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
-import { ClerkProvider, useUser } from "@clerk/react";
+import { ClerkProvider, useAuth, useUser } from "@clerk/react";
 import { syncUserToFirestore } from "./services/firebase";
+import { clearAuthToken, setAuthTokenProvider } from "./services/authToken";
 
 const publishableKey =
   import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ||
@@ -20,6 +21,25 @@ function FirestoreAuthSync() {
       });
     }
   }, [isLoaded, isSignedIn, user]);
+
+  return null;
+}
+
+/**
+ * Exposes Clerk's short-lived session token to the API client without placing
+ * a shared backend secret in the browser bundle.
+ */
+function AuthTokenBridge() {
+  const { getToken, isSignedIn } = useAuth();
+
+  useEffect(() => {
+    if (!isSignedIn) {
+      clearAuthToken();
+      return undefined;
+    }
+    setAuthTokenProvider(() => getToken());
+    return () => clearAuthToken();
+  }, [getToken, isSignedIn]);
 
   return null;
 }
@@ -71,6 +91,7 @@ export default function ClerkRoot({ children }) {
       afterSignOutUrl="/"
     >
       <FirestoreAuthSync />
+      <AuthTokenBridge />
       {children}
     </ClerkProvider>
   );

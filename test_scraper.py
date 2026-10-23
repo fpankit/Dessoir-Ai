@@ -11,6 +11,7 @@ Usage:
     python test_scraper.py https://github.com
 """
 
+import os
 import sys
 import json
 import urllib.request
@@ -24,9 +25,10 @@ if sys.platform == "win32":
         pass
 
 # n8n default webhook endpoints (local instance)
-TEST_WEBHOOK_URL = "http://localhost:5678/webhook-test/company-summary"
-PROD_WEBHOOK_URL = "http://localhost:5678/webhook/company-summary"
-WORKFLOW_UI_URL = "http://localhost:5678/workflow/Ggk1Ybv2PwGRpwwN?projectId=8RvnxgYD82P4zfqz"
+N8N_BASE_URL = os.environ.get("N8N_BASE_URL", "http://localhost:5678").rstrip("/")
+TEST_WEBHOOK_URL = f"{N8N_BASE_URL}/webhook-test/company-summary"
+PROD_WEBHOOK_URL = f"{N8N_BASE_URL}/webhook/company-summary"
+WORKFLOW_UI_URL = f"{N8N_BASE_URL}/workflow/Ggk1Ybv2PwGRpwwN?projectId=8RvnxgYD82P4zfqz"
 
 def test_company_scraper(target_url: str):
     print("\n" + "=" * 60)
@@ -35,8 +37,16 @@ def test_company_scraper(target_url: str):
     print(f"[*] Linked n8n Workflow: {WORKFLOW_UI_URL}")
     print("=" * 60 + "\n")
 
+    shared_secret = os.environ.get("N8N_SHARED_SECRET", "").strip()
+    if not shared_secret:
+        print("[-] N8N_SHARED_SECRET is not set. Export the same value configured in n8n, then retry.")
+        return False
+
     payload = json.dumps({"url": target_url}).encode("utf-8")
-    headers = {"Content-Type": "application/json"}
+    headers = {
+        "Content-Type": "application/json",
+        "x-shared-secret": shared_secret
+    }
 
     endpoints = [
         ("Production Webhook", PROD_WEBHOOK_URL),

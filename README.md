@@ -55,12 +55,14 @@ Make a `POST` request to your local n8n webhook:
 ```bash
 curl -X POST http://localhost:5678/webhook/company-summary \
   -H "Content-Type: application/json" \
-  -d '{"url": "https://stripe.com", "shared_secret": "<N8N_SHARED_SECRET>"}'
+  -H "x-shared-secret: $N8N_SHARED_SECRET" \
+  -d '{"url": "https://stripe.com"}'
 ```
 
 You can also pass it as a query parameter:
 ```bash
-curl -X POST "http://localhost:5678/webhook/company-summary?url=https://openai.com"
+curl -X POST "http://localhost:5678/webhook/company-summary?url=https://openai.com" \
+  -H "x-shared-secret: $N8N_SHARED_SECRET"
 ```
 
 ### Option B: Quick Test Python Script
@@ -122,34 +124,38 @@ After each successful fetch and analysis of a company website:
      ```bash
      curl -X POST http://localhost:5678/webhook/customer-agent-chat \
        -H "Content-Type: application/json" \
-       -d '{"message": "What products do you offer?", "shared_secret": "<N8N_SHARED_SECRET>"}'
+       -H "x-shared-secret: $N8N_SHARED_SECRET" \
+       -d '{"message": "What products do you offer?"}'
      ```
 
 ---
 
 ## 🔐 Security Configuration
 
-Both n8n webhooks are now **authenticated, rate-limited, and SSRF-hardened**.
+Browser traffic no longer talks to n8n directly. Vite proxies `/api/n8n/*` in development, and the Vercel functions under `api/n8n/` do it in production. The shared secret stays server-side.
 
 ### Required environment variables
 
 | Variable | Where | Purpose |
 |---|---|---|
-| `N8N_SHARED_SECRET` | n8n host environment | Master webhook secret. **Required** — without it both webhooks reject every call with HTTP 401 (fail-closed). |
-| `VITE_N8N_SHARED_SECRET` | Frontend (`.env.local`) | Same value, bundled into the frontend so browser requests carry `shared_secret`. |
+| `N8N_SHARED_SECRET` | n8n host + Vercel server env + local `.env.local` | Master webhook secret. **Required** — without it both webhooks reject every call with HTTP 401 (fail-closed). Never prefix it with `VITE_`. |
+| `CLERK_SECRET_KEY` | Vercel server env | Verifies Clerk session tokens on the proxy. Required in production. |
+| `APP_ORIGIN` | Vercel server env | Expected Clerk token origin, e.g. `https://dessoir-ai.vercel.app`. |
+| `N8N_BASE_URL` | Vercel server env / local `.env.local` | n8n origin. Defaults to `http://localhost:5678`. |
 
-The frontend sends the secret as a `shared_secret` body field (and honors an `x-shared-secret` header as an alternative). Rotate both values together.
+The browser sends a short-lived Clerk token in `Authorization: Bearer …`. The proxy verifies it, adds `x-shared-secret`, and forwards the request. `shared_secret` fields are stripped from client bodies.
 
 ### Webhook protections (inside `workflow.json`)
 
-1. **Shared-secret gate** — unauthorized calls get `401` before any scraping.
-2. **Rate limiting** — 30 requests/minute per client (uses `x-forwarded-for`), 120/minute globally; excess calls get `429`. Tune in the `RATE_LIMIT_PER_MINUTE` / `RATE_LIMIT_GLOBAL_PER_MINUTE` constants of the first code node.
-3. **SSRF hardening** — HTTPS-only targets; blocks localhost, private ranges (IPv4 + IPv6), encoded/dotted-decimal IP forms, `.local` hosts, embedded userinfo; redirect chains are re-validated hop-by-hop (max 3) and never cross back to plain HTTP.
-4. **Cross-tenant isolation** — the chat webhook no longer falls back to a globally cached `latestBrief`; replies are scoped to the requested `website_url` only.
+1. **Shared-secret gate** — unauthorized calls get `401` before any scraping or rate-limit work. Comparison is constant-time.
+2. **Rate limiting** — 10 scrapes/minute per authenticated client (`x-client-id`) and 60/minute globally; chat is 30/120. Excess calls get `429`.
+3. **SSRF hardening** — HTTP(S)-only targets; blocks localhost, private/loopback/link-local/CGNAT/multicast ranges, IPv4 and IPv6 literals, encoded/dotted-decimal forms, `.local`/`.internal`/metadata hosts, common wildcard-DNS services, and embedded userinfo. Redirect chains are re-validated hop-by-hop (max 3).
+4. **Cross-tenant isolation** — the chat responder no longer falls back to a global `latestBrief`; replies are scoped to the requested `website_url` and its stored brief only.
+5. **Prompt-injection guard** — scraped content is marked untrusted in both the LLM and Retell prompts; embedded instructions are ignored.
 
 ### Firestore (RLS equivalent)
 
-`firestore.rules` locks the database with deny-by-default and owner-only access to `users/{uid}` (plus append-only `auth_history`). Deploy with:
+`firestore.rules` locks the database with deny-by-default and owner-only access to `users/{uid}` (plus append-only `auth_history`). `firebase.json` points the CLI at these rules. Deploy with:
 
 ```bash
 firebase deploy --only firestore:rules
@@ -159,19 +165,15 @@ Client-side profile sync is disabled by default (`VITE_ENABLE_FIRESTORE_SYNC=fal
 
 ### Deployment headers
 
-Every page ships a meta `Content-Security-Policy` and `Referrer-Policy`. For production hosting, put the same policy (plus what a meta tag cannot express) in real HTTP response headers on your host/CDN:
-
-- `Content-Security-Policy` (promote the shipped policy from `content` to a header; consider `Content-Security-Policy-Report-Only` first to tune false positives)
-- `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
-- `X-Frame-Options: DENY` / `frame-ancestors 'none'`
-- `X-Content-Type-Options: nosniff`
-- `Permissions-Policy: camera=(), microphone=(), geolocation=()`
-- Serve strictly over HTTPS (all `http://localhost:5678` calls are dev-only).
+`vercel.json` sets `Content-Security-Policy`, HSTS, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, and a restrictive `Permissions-Policy` for every route. The meta CSP in the HTML entry points remains as a fallback.
 
 ### Known remaining items
 
-- The built-in n8n chat panel (`/webhook/company-agent-chat/chat`) is unauthenticated by design — it is a local-only trigger.
+- The built-in n8n chat panel (`/webhook/company-agent-chat/chat`) is public by design. It is rate-limited and scoped to a requested brief, but it has no user authentication.
 - Prefer n8n-native Basic Auth on the webhook nodes as defense-in-depth (credentials must be created inside your n8n instance).
+- DNS rebinding is not fully preventable in the workflow code; run n8n behind an egress firewall that denies private ranges.
+- Production still needs a Clerk `pk_live_` key in Vercel (currently `pk_test_` triggers Clerk's dev warning).
+- Verify deployed Firestore rules in the Firebase console; repository rules are not proof of deployment.
 - `@grpc/grpc-js` is pinned ≥1.13.5 in `package.json` `overrides` to clear the two gRPC TLS advisories (GHSA-m9gg-hp2v-232j, GHSA-f596-whhp-79r4).
 
 ---
