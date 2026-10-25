@@ -1,6 +1,7 @@
 import { createRef, useCallback, useEffect, useRef, useState } from "react";
 import { UserButton, SignIn, SignUp, useUser, useAuth } from "@clerk/react";
 import { AnimatedBeam } from "./components/AnimatedBeam";
+import { NavbarRunner } from "./components/NavbarRunner";
 import {
   ArrowLeftRight,
   ArrowRight,
@@ -1039,6 +1040,8 @@ function Header({ menuOpen, setMenuOpen, page = "home" }) {
         </div>
       </div>
 
+      <NavbarRunner />
+
       <div
         ref={menuRef}
         className={`mobile-menu${menuOpen ? " is-open" : ""}`}
@@ -1930,7 +1933,6 @@ function HeroDemo({ onToneChange, onBackgroundSwipe }) {
 function Hero() {
   const [tone, setTone] = useState("blue");
   const [backgroundSwipe, setBackgroundSwipe] = useState(false);
-
   return (
     <section className="hero" id="top" aria-labelledby="hero-title">
       <div className="hero-copy">
@@ -2007,11 +2009,21 @@ function Hero() {
           onToneChange={setTone}
           onBackgroundSwipe={setBackgroundSwipe}
         />
+
+        <div className="hero-mascot" aria-hidden="true">
+          <span className="hero-mascot-bob">
+            <img
+              src="/mascot/dessoir-dragon-guide.webp"
+              alt=""
+              draggable="false"
+              decoding="async"
+            />
+          </span>
+        </div>
       </div>
     </section>
   );
 }
-
 
 function AgentGrid({ id }) {
   return (

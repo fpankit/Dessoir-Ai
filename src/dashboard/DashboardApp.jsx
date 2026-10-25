@@ -28,6 +28,7 @@ import {
   X
 } from "lucide-react";
 import { BrandLockup } from "../components/Brand";
+import Mascot from "./Mascot";
 import { buildSampleBrief, normalizeBrief } from "../data/sampleBriefs";
 import { answerFromKnowledgeBase, sendAgentMessage } from "../services/chatApi";
 import { pingN8nStatus } from "../services/scraperApi";
@@ -1207,6 +1208,8 @@ export default function DashboardApp() {
           <ActiveView {...viewProps} />
         </main>
       </div>
+
+      <Mascot workspace={workspace} onNavigate={navigate} />
 
       <SearchPalette
         open={searchOpen}

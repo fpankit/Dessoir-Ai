@@ -5,6 +5,7 @@ import ClerkRoot from "./ClerkRoot";
 import "./styles.css";
 import "./components/brand.css";
 import "./dashboard/dashboard.css";
+import "./dashboard/mascot.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
